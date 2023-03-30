@@ -6,7 +6,7 @@ package compiler
 import (
 	"errors"
 	"fmt"
-	"github.com/vc2402/goscript/runtime"
+	"github.com/vc2402/go-script/runtime"
 	"go/token"
 	"reflect"
 	"strconv"

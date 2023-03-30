@@ -1,6 +1,6 @@
 package compiler
 
-import "github.com/vc2402/goscript/runtime"
+import "github.com/vc2402/go-script/runtime"
 
 var builtInTypesMapping = [...]runtime.VarKind{
 	runtime.VKInt,
