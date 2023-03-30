@@ -22,9 +22,11 @@ GoScript is Go-like scripting language with access to Go objects
 * there is no pointers
 ## To try
 ```
-$ git clone github.com/vc2402/go-script/cli
-$ cd cli
+$ git clone https://github.com/vc2402/go-script
+$ cd go-script/cli
+$ go mod tidy
 $ go run .
 > compile test.gos
 > run setG
 ```
+Registering of accessible objects you can find in function initRegistry of main.go
