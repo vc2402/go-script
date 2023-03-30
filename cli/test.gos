@@ -1,0 +1,49 @@
+var global = 34.5
+
+func f(a int, b int) (m int, n int) {
+    //fmt.Println("f: params: ", a, b)
+  d := 23 + a - 1 + global/2
+  //fmt.Println("returning: ", d)
+  return d, 34
+}
+
+func setG(nv int) {
+   a, b := f(nv, nv)
+   fmt.Println("a: ", a, "; b:", b)
+   var t time.Time
+     t = time.Now()
+     fmt.Println(t.Format("2006-01-02"))
+
+     t1, err := time.Parse( "2006-01-02", "2023-03-27")
+     if err == nil {
+        fmt.Println(t1)
+     } else {
+       fmt.Println(err)
+     }
+  if nv > 10 {
+     global = float(nv + a)
+     fmt.Println("then")
+  } else {
+    global = global - b
+     fmt.Println("else")
+  }
+     fmt.Println("exit:", global)
+  tt := test.TestObject
+  tt.Print()
+  st := tt.New()
+  tt, err = st.Parent()
+  if err != nil {
+    fmt.Println("error: ", err)
+  } else {
+     fmt.Println("parent: ", tt)
+     tt.Print()
+  }
+  st.Unbind()
+  tt, err = st.Parent()
+    if err != nil {
+      fmt.Println("error: ", err)
+    } else {
+       fmt.Println("parent: ", tt)
+       tt.Print()
+    }
+}
