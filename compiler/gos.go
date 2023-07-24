@@ -5,9 +5,7 @@ package compiler
 import __yyfmt__ "fmt"
 
 import (
-	"fmt"
-	"go/scanner"
-	"go/token"
+	"github.com/vc2402/go-script/runtime"
 )
 
 type GosSymType struct {
@@ -44,32 +42,34 @@ const FLOAT = 57348
 const CHAR = 57349
 const STRING = 57350
 const BOOL = 57351
-const LOR = 57352
-const REM = 57353
-const LAND = 57354
-const GT = 57355
-const LT = 57356
-const EQ = 57357
-const NEQ = 57358
-const GTE = 57359
-const LTE = 57360
-const INC = 57361
-const DEC = 57362
-const DEFINE = 57363
-const ELLIPSIS = 57364
-const VAR = 57365
-const FUNC = 57366
-const PACKAGE = 57367
-const MAP = 57368
-const IF = 57369
-const ELSE = 57370
-const SWITCH = 57371
-const CASE = 57372
-const FOR = 57373
-const BREAK = 57374
-const CONTINUE = 57375
-const RANGE = 57376
-const RETURN = 57377
+const FUNCNAME = 57352
+const LOR = 57353
+const REM = 57354
+const LAND = 57355
+const GT = 57356
+const LT = 57357
+const EQ = 57358
+const NEQ = 57359
+const GTE = 57360
+const LTE = 57361
+const INC = 57362
+const DEC = 57363
+const DEFINE = 57364
+const ELLIPSIS = 57365
+const VAR = 57366
+const FUNC = 57367
+const PACKAGE = 57368
+const MAP = 57369
+const IF = 57370
+const ELSE = 57371
+const SWITCH = 57372
+const CASE = 57373
+const FOR = 57374
+const BREAK = 57375
+const CONTINUE = 57376
+const RANGE = 57377
+const RETURN = 57378
+const MAKE = 57379
 
 var GosToknames = [...]string{
 	"$end",
@@ -81,6 +81,7 @@ var GosToknames = [...]string{
 	"CHAR",
 	"STRING",
 	"BOOL",
+	"FUNCNAME",
 	"'+'",
 	"'-'",
 	"LOR",
@@ -123,6 +124,7 @@ var GosToknames = [...]string{
 	"CONTINUE",
 	"RANGE",
 	"RETURN",
+	"MAKE",
 }
 
 var GosStatenames = [...]string{}
@@ -131,319 +133,205 @@ const GosEofCode = 1
 const GosErrCode = 2
 const GosInitialStackSize = 16
 
-// The parser expects the lexer to return 0 on EOF.  Give it a name
-// for clarity.
-const eof = 0
-
-// The parser uses the type <prefix>Lex as a lexer. It must provide
-// the methods Lex(*<prefix>SymType) int and Error(string).
-type GosLex struct {
-	S    scanner.Scanner
-	Pos  token.Pos
-	Fset *token.FileSet
-	File
-}
-
-// The parser calls this method to get each new token. This
-// implementation returns operators and NUM.
-func (x *GosLex) Lex(yylval *GosSymType) int {
-	for {
-		pos, tok, lit := x.S.Scan()
-		if tok == token.EOF {
-			return eof
-		}
-		x.Pos = pos
-		yylval.val = lit
-		switch tok {
-		case token.INT:
-			return INT
-		case token.CHAR:
-			return CHAR
-		case token.STRING:
-			return STRING
-		case token.FLOAT:
-			return FLOAT
-		case token.ADD:
-			return '+'
-		case token.SUB:
-			return '-'
-		case token.MUL:
-			return '*'
-		case token.QUO:
-			return '/'
-		case token.LOR:
-			return LOR
-		case token.LAND:
-			return LAND
-		case token.DEFINE:
-			return DEFINE
-		case token.GTR:
-			return GT
-		case token.LSS:
-			return LT
-		case token.INC:
-			return INC
-		case token.DEC:
-			return DEC
-		case token.EQL:
-			return EQ
-		case token.NEQ:
-			return NEQ
-		case token.LEQ:
-			return LTE
-		case token.GEQ:
-			return GTE
-		case token.LBRACE:
-			return '{'
-		case token.RBRACE:
-			return '}'
-		case token.ASSIGN:
-			return '='
-		case token.LPAREN:
-			return '('
-		case token.RPAREN:
-			return ')'
-		case token.LBRACK:
-			return '['
-		case token.RBRACK:
-			return ']'
-		case token.COMMA:
-			return ','
-		case token.PERIOD:
-			return '.'
-		case token.SEMICOLON:
-			return ';'
-		case token.COLON:
-			return ':'
-		case token.VAR:
-			return VAR
-		case token.FUNC:
-			return FUNC
-		case token.IDENT:
-			if lit == "true" || lit == "false" {
-				return BOOL
-			}
-			return IDENT
-		case token.PACKAGE:
-			return PACKAGE
-		case token.MAP:
-			return MAP
-		case token.IF:
-			return IF
-		case token.ELSE:
-			return ELSE
-		case token.FOR:
-			return FOR
-		case token.RANGE:
-			return RANGE
-		case token.SWITCH:
-			return SWITCH
-		case token.CASE:
-			return CASE
-		case token.BREAK:
-			return BREAK
-		case token.CONTINUE:
-			return CONTINUE
-		case token.RETURN:
-			return RETURN
-		default:
-			return int(tok)
-		}
-	}
-}
-
-// The parser calls this method on a parse error.
-func (x *GosLex) Error(s string) {
-	fmt.Printf("parse error: %s: %s", x.Fset.Position(x.Pos), s)
-}
-
 var GosExca = [...]int16{
 	-1, 1,
 	1, -1,
 	-2, 0,
 	-1, 3,
-	36, 46,
+	37, 48,
 	-2, 2,
 	-1, 27,
-	26, 70,
-	29, 70,
-	32, 70,
-	-2, 94,
-	-1, 40,
-	36, 46,
+	27, 72,
+	30, 72,
+	33, 72,
+	-2, 96,
+	-1, 43,
+	37, 48,
 	-2, 3,
-	-1, 70,
-	36, 49,
-	-2, 65,
-	-1, 174,
-	35, 26,
+	-1, 73,
+	37, 51,
+	-2, 67,
+	-1, 185,
+	36, 26,
 	-2, 24,
 }
 
 const GosPrivate = 57344
 
-const GosLast = 332
+const GosLast = 422
 
 var GosAct = [...]uint8{
-	101, 128, 15, 129, 9, 12, 11, 122, 71, 121,
-	18, 28, 7, 137, 20, 5, 158, 32, 35, 36,
-	37, 38, 39, 145, 63, 66, 72, 69, 73, 65,
-	21, 150, 178, 62, 179, 177, 26, 110, 148, 103,
-	20, 169, 134, 103, 46, 64, 103, 25, 45, 27,
-	88, 89, 90, 91, 92, 93, 94, 95, 96, 97,
-	98, 99, 87, 82, 102, 105, 27, 100, 27, 105,
-	108, 100, 105, 109, 107, 111, 164, 104, 84, 113,
-	115, 104, 72, 72, 104, 123, 27, 150, 117, 118,
-	149, 32, 35, 36, 37, 38, 39, 148, 77, 85,
-	147, 146, 103, 75, 76, 72, 166, 27, 136, 77,
-	26, 133, 78, 139, 20, 106, 143, 132, 86, 174,
-	135, 25, 77, 140, 141, 78, 19, 119, 105, 20,
-	21, 151, 24, 80, 22, 72, 79, 155, 23, 81,
-	104, 152, 130, 157, 156, 105, 80, 17, 123, 83,
-	163, 123, 81, 60, 165, 159, 161, 104, 142, 74,
-	160, 154, 59, 168, 153, 173, 172, 175, 3, 170,
-	70, 120, 131, 40, 176, 127, 126, 125, 124, 180,
-	32, 35, 36, 37, 38, 39, 116, 44, 42, 112,
-	32, 35, 36, 37, 38, 39, 1, 13, 10, 26,
-	30, 31, 34, 20, 27, 33, 14, 138, 29, 26,
-	25, 61, 68, 20, 167, 19, 8, 67, 16, 21,
-	25, 2, 171, 22, 162, 19, 6, 23, 43, 21,
-	41, 4, 0, 22, 0, 0, 0, 23, 47, 48,
-	52, 49, 50, 0, 51, 55, 56, 53, 54, 57,
-	58, 55, 56, 53, 54, 57, 58, 0, 47, 48,
-	52, 49, 50, 114, 51, 55, 56, 53, 54, 57,
-	58, 32, 35, 36, 37, 38, 39, 0, 0, 144,
-	0, 0, 0, 0, 0, 47, 48, 52, 49, 50,
-	26, 51, 55, 56, 53, 54, 57, 58, 0, 0,
-	0, 25, 20, 47, 48, 52, 49, 50, 0, 51,
-	55, 56, 53, 54, 57, 58, 49, 50, 0, 51,
-	55, 56, 53, 54, 57, 58, 32, 35, 36, 37,
-	38, 39,
+	15, 106, 11, 136, 135, 9, 127, 12, 128, 75,
+	18, 28, 144, 20, 5, 119, 167, 159, 7, 118,
+	191, 152, 66, 69, 76, 68, 77, 190, 72, 21,
+	189, 155, 159, 157, 178, 158, 156, 155, 115, 65,
+	154, 79, 80, 49, 67, 48, 81, 81, 27, 153,
+	82, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+	102, 103, 104, 81, 108, 27, 82, 27, 92, 113,
+	87, 108, 114, 90, 116, 33, 36, 37, 38, 39,
+	40, 41, 121, 112, 76, 76, 185, 129, 27, 130,
+	86, 110, 91, 124, 125, 26, 141, 89, 110, 20,
+	111, 84, 173, 109, 83, 119, 25, 85, 76, 27,
+	109, 19, 84, 110, 142, 21, 146, 140, 85, 22,
+	150, 175, 143, 23, 42, 109, 139, 20, 147, 148,
+	126, 33, 36, 37, 38, 39, 40, 41, 88, 160,
+	76, 47, 122, 63, 122, 164, 3, 165, 123, 161,
+	163, 43, 166, 129, 162, 108, 129, 33, 170, 168,
+	172, 108, 149, 174, 169, 33, 36, 37, 38, 39,
+	40, 41, 24, 177, 181, 184, 138, 186, 183, 187,
+	42, 188, 110, 17, 105, 26, 134, 107, 110, 20,
+	105, 137, 193, 133, 109, 132, 25, 131, 45, 78,
+	109, 19, 8, 117, 1, 21, 73, 13, 10, 22,
+	30, 62, 27, 23, 42, 33, 36, 37, 38, 39,
+	40, 41, 32, 33, 36, 37, 38, 39, 40, 41,
+	31, 35, 34, 14, 145, 26, 29, 64, 71, 20,
+	176, 70, 16, 26, 2, 182, 25, 171, 6, 46,
+	44, 19, 4, 0, 25, 21, 74, 0, 0, 22,
+	0, 0, 0, 23, 42, 33, 36, 37, 38, 39,
+	40, 41, 42, 33, 36, 37, 38, 39, 40, 41,
+	0, 0, 0, 0, 0, 26, 0, 0, 0, 20,
+	0, 0, 0, 26, 0, 0, 25, 0, 0, 50,
+	51, 55, 52, 53, 25, 54, 58, 59, 56, 57,
+	60, 61, 0, 0, 42, 58, 59, 56, 57, 60,
+	61, 180, 42, 0, 179, 50, 51, 55, 52, 53,
+	0, 54, 58, 59, 56, 57, 60, 61, 0, 0,
+	0, 0, 0, 0, 0, 50, 51, 55, 52, 53,
+	192, 54, 58, 59, 56, 57, 60, 61, 0, 0,
+	0, 0, 0, 0, 0, 50, 51, 55, 52, 53,
+	120, 54, 58, 59, 56, 57, 60, 61, 0, 0,
+	0, 50, 51, 55, 52, 53, 151, 54, 58, 59,
+	56, 57, 60, 61, 0, 0, 0, 0, 20, 50,
+	51, 55, 52, 53, 0, 54, 58, 59, 56, 57,
+	60, 61, 52, 53, 0, 54, 58, 59, 56, 57,
+	60, 61,
 }
 
 var GosPact = [...]int16{
-	-26, -1000, -1000, 176, -1000, 184, -1000, -1000, 183, 12,
-	8, -1000, -1000, -1000, -1000, 293, -1000, -1000, -1000, 149,
-	186, 267, 13, 267, -1000, 267, 322, 79, 107, -1000,
-	-1000, -1000, 29, -1000, -1000, -1000, -1000, -1000, -1000, -1000,
-	176, 135, 45, 85, 28, -1000, -1000, 267, 267, 267,
-	267, 267, 267, 267, 267, 267, 267, 267, 267, 35,
-	-1000, 87, -1000, 275, 92, -1000, 275, 1, 102, -1000,
-	-1000, 47, 293, 228, -1000, -1000, -1000, 267, 182, 267,
-	267, 167, 267, 174, 173, 172, 171, 149, 303, 303,
-	234, 234, 234, 303, -1000, -1000, -1000, -1000, -1000, -1000,
-	168, 88, 267, 9, 90, 77, -1000, -1000, -31, -1000,
-	267, -1000, 167, 267, -1000, 248, -11, 47, 47, 68,
-	-1000, 65, -1000, 293, -1000, -1000, -1000, -1000, 55, -1000,
-	39, -1000, 267, 47, 160, 157, 98, -13, -20, 293,
-	-1000, 120, 68, 293, -1000, 267, 156, -1000, 267, 42,
-	149, -1000, 47, -1000, 75, -1000, -1000, -1000, 267, 6,
-	-1000, -1000, 102, -1000, 115, -1000, 98, 102, -1000, -1000,
-	-1000, 0, -1, -1000, 9, -1000, -1000, -1000, 98, -1000,
-	-1000,
+	-28, -1000, -1000, 161, -1000, 194, -1000, -1000, 131, 8,
+	6, -1000, -1000, -1000, -1000, 388, -1000, -1000, -1000, 139,
+	211, 269, 261, 219, -1000, 269, 127, 16, 74, -1000,
+	-1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000, -1000,
+	-1000, 55, 35, 161, 123, 63, 58, 33, -1000, -1000,
+	269, 269, 269, 269, 269, 269, 269, 269, 269, 269,
+	269, 269, 157, -1000, 71, -1000, 370, 32, -1000, 370,
+	1, 99, -1000, -1000, -1000, -18, 388, 334, -1000, -1000,
+	-1000, 269, 138, 269, 269, 153, 269, 60, 193, 191,
+	189, 182, 139, 398, 398, 297, 297, 297, 398, -1000,
+	-1000, -1000, -1000, -1000, -1000, 172, 96, 269, 62, 83,
+	90, -1000, -1000, -33, -1000, 269, -1000, 153, -1000, 269,
+	-1000, 354, -1000, -14, 72, 72, 15, 4, -1000, 388,
+	0, -1000, -1000, -1000, -1000, -1, -1000, 151, -1000, 269,
+	72, 150, 146, 60, -15, -21, 388, -1000, 85, 15,
+	388, -1000, 269, 140, -1000, 269, -1000, 269, 67, 139,
+	-1000, 72, -1000, 89, -1000, -1000, -1000, 269, -2, -1000,
+	288, 99, -1000, 82, -1000, 60, 99, -1000, -1000, -1000,
+	269, -1000, -6, -16, -1000, 62, -1000, -1000, 314, -1000,
+	60, -1000, -1000, -1000,
 }
 
 var GosPgo = [...]uint8{
-	0, 231, 230, 228, 142, 226, 3, 1, 224, 222,
-	221, 168, 12, 4, 218, 217, 214, 212, 6, 211,
-	45, 11, 208, 2, 7, 132, 207, 9, 8, 206,
-	205, 147, 202, 201, 200, 198, 10, 0, 5, 197,
-	196, 189,
+	0, 252, 250, 249, 191, 248, 3, 4, 247, 245,
+	244, 146, 18, 5, 242, 241, 240, 238, 2, 237,
+	44, 11, 236, 0, 8, 172, 234, 6, 9, 233,
+	232, 183, 231, 230, 222, 210, 208, 10, 1, 7,
+	207, 204, 203,
 }
 
 var GosR1 = [...]int8{
-	0, 40, 10, 10, 1, 2, 2, 2, 3, 3,
+	0, 41, 10, 10, 1, 2, 2, 2, 3, 3,
 	11, 11, 11, 5, 7, 7, 7, 6, 8, 8,
-	8, 8, 9, 9, 4, 4, 37, 37, 37, 37,
-	18, 19, 19, 19, 12, 12, 12, 12, 12, 12,
-	35, 35, 35, 31, 36, 33, 13, 13, 13, 13,
-	13, 14, 14, 38, 38, 38, 39, 39, 39, 39,
-	29, 29, 15, 16, 26, 41, 17, 20, 20, 20,
-	21, 21, 30, 32, 34, 23, 23, 23, 23, 23,
+	8, 8, 9, 9, 4, 4, 38, 38, 38, 38,
+	34, 34, 34, 18, 19, 19, 12, 12, 12, 12,
+	12, 12, 36, 36, 36, 31, 37, 33, 13, 13,
+	13, 13, 13, 14, 14, 39, 39, 39, 40, 40,
+	40, 40, 29, 29, 15, 16, 26, 42, 17, 20,
+	20, 20, 21, 21, 30, 32, 35, 23, 23, 23,
 	23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
-	28, 28, 25, 25, 25, 25, 22, 22, 22, 22,
-	22, 27, 27, 27, 24,
+	23, 23, 28, 28, 25, 25, 25, 25, 25, 22,
+	22, 22, 22, 22, 27, 27, 27, 24,
 }
 
 var GosR2 = [...]int8{
 	0, 1, 1, 2, 2, 1, 3, 3, 3, 3,
 	0, 2, 2, 7, 0, 1, 3, 2, 0, 1,
 	3, 3, 1, 3, 1, 3, 1, 3, 5, 3,
-	3, 0, 1, 2, 2, 2, 1, 1, 1, 1,
-	3, 5, 4, 3, 3, 4, 0, 1, 1, 1,
-	1, 2, 2, 3, 5, 5, 2, 3, 7, 3,
-	1, 2, 1, 1, 1, 0, 3, 1, 1, 1,
-	1, 3, 4, 3, 6, 1, 3, 3, 3, 3,
-	3, 3, 3, 2, 3, 3, 3, 3, 3, 3,
-	1, 3, 1, 1, 1, 1, 1, 1, 1, 1,
-	1, 0, 1, 3, 1,
+	4, 6, 8, 3, 1, 2, 2, 2, 1, 1,
+	1, 1, 3, 5, 4, 3, 3, 4, 0, 1,
+	1, 1, 1, 2, 2, 3, 5, 5, 2, 3,
+	7, 3, 2, 3, 1, 1, 1, 0, 3, 1,
+	1, 1, 1, 3, 4, 3, 6, 1, 3, 3,
+	3, 3, 3, 3, 3, 2, 3, 3, 3, 3,
+	3, 3, 1, 3, 1, 1, 1, 1, 1, 1,
+	1, 1, 1, 1, 0, 1, 3, 1,
 }
 
 var GosChk = [...]int16{
-	-1000, -40, -10, -11, -1, 41, -5, -12, 40, -13,
-	-35, -18, -38, -39, -29, -23, -14, -31, -36, 39,
-	27, 43, 47, 51, -25, 34, 23, -20, -21, -22,
-	-34, -33, 4, -30, -32, 5, 6, 7, 8, 9,
-	-11, -2, 4, -3, 4, 36, 36, 10, 11, 13,
-	14, 16, 12, 19, 20, 17, 18, 21, 22, -4,
-	4, -19, -12, -23, -20, -18, -23, -15, -17, -13,
-	-31, -28, -23, -23, -25, 24, 25, 30, 33, 29,
-	26, 32, 34, 14, 33, 14, 33, 34, -23, -23,
-	-23, -23, -23, -23, -23, -23, -23, -23, -23, -23,
-	32, -37, 29, 4, 42, 30, 28, -12, -18, -18,
-	36, -18, -41, 32, 35, -23, 4, -28, -28, -20,
-	4, -27, -24, -23, 4, 4, 4, 4, -7, -6,
-	-4, 4, 29, -28, 33, 30, 31, 44, -26, -23,
-	-36, -21, -20, -23, 31, 34, 33, 35, 32, 35,
-	32, -37, -28, 4, 4, -37, -18, -38, 36, -27,
-	4, -24, -8, -37, 34, -6, 31, -16, -13, 35,
-	-18, -9, -7, -37, 4, -37, -18, 35, 32, 35,
-	-37,
+	-1000, -41, -10, -11, -1, 42, -5, -12, 41, -13,
+	-36, -18, -39, -40, -29, -23, -14, -31, -37, 40,
+	28, 44, 48, 52, -25, 35, 24, -20, -21, -22,
+	-35, -33, -34, 4, -30, -32, 5, 6, 7, 8,
+	9, 10, 53, -11, -2, 4, -3, 10, 37, 37,
+	11, 12, 14, 15, 17, 13, 20, 21, 18, 19,
+	22, 23, -4, 4, -19, -12, -23, -20, -18, -23,
+	-15, -17, -13, -31, 37, -28, -23, -23, -25, 25,
+	26, 31, 34, 30, 27, 33, 35, 35, 15, 34,
+	15, 34, 35, -23, -23, -23, -23, -23, -23, -23,
+	-23, -23, -23, -23, -23, 33, -38, 30, 4, 43,
+	31, 29, -12, -18, -18, 37, -18, -42, 37, 33,
+	36, -23, 4, 10, -28, -28, -20, -27, -24, -23,
+	-38, 4, 4, 4, 4, -7, -6, -4, 4, 30,
+	-28, 34, 31, 32, 45, -26, -23, -37, -21, -20,
+	-23, 32, 35, 34, 36, 33, 36, 33, 36, 33,
+	-38, -28, 4, 4, -38, -18, -39, 37, -27, -24,
+	-23, -8, -38, 35, -6, 32, -16, -13, 36, 36,
+	33, -18, -9, -7, -38, 4, -38, -18, -23, 36,
+	33, 36, 36, -38,
 }
 
 var GosDef = [...]int8{
 	10, -2, 1, -2, 10, 0, 11, 12, 0, 0,
-	0, 36, 37, 38, 39, 47, 48, 49, 50, 0,
-	31, 0, 46, 60, 75, 0, 0, -2, 0, 92,
-	93, 95, 67, 68, 69, 96, 97, 98, 99, 100,
-	-2, 4, 5, 0, 0, 34, 35, 0, 0, 0,
+	0, 38, 39, 40, 41, 49, 50, 51, 52, 0,
+	48, 0, 48, 0, 77, 0, 0, -2, 0, 94,
+	95, 97, 98, 69, 70, 71, 99, 100, 101, 102,
+	103, 0, 0, -2, 4, 5, 0, 0, 36, 37,
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	24, 46, 32, 0, 94, 56, 47, 0, 0, 62,
-	-2, 61, 90, 0, 83, 51, 52, 0, 0, 0,
-	0, 0, 101, 0, 0, 0, 0, 14, 77, 78,
-	79, 80, 81, 82, 84, 85, 86, 87, 88, 89,
-	0, 40, 0, 26, 0, 0, 30, 33, 53, 57,
-	0, 59, 0, 0, 76, 0, 73, 43, 44, 71,
-	67, 0, 102, 104, 7, 8, 6, 9, 0, 15,
-	0, 25, 0, 42, 0, 0, 0, 0, 0, 64,
-	66, 0, 70, 91, 72, 101, 0, 45, 0, 18,
-	0, 17, 41, 27, 0, 29, 54, 55, 46, 0,
-	73, 103, 0, 19, 14, 16, 0, 0, 63, 74,
-	13, 0, 0, 22, -2, 28, 58, 20, 0, 21,
-	23,
+	0, 0, 0, 24, 48, 34, 0, 96, 58, 49,
+	0, 0, 64, -2, 62, 0, 92, 0, 85, 53,
+	54, 0, 0, 0, 0, 0, 104, 0, 0, 0,
+	0, 0, 14, 79, 80, 81, 82, 83, 84, 86,
+	87, 88, 89, 90, 91, 0, 42, 0, 26, 0,
+	0, 33, 35, 55, 59, 0, 61, 0, 63, 0,
+	78, 0, 75, 0, 45, 46, 73, 0, 105, 107,
+	0, 7, 8, 6, 9, 0, 15, 0, 25, 0,
+	44, 0, 0, 0, 0, 0, 66, 68, 0, 72,
+	93, 74, 104, 0, 47, 0, 30, 0, 18, 0,
+	17, 43, 27, 0, 29, 56, 57, 48, 0, 106,
+	0, 0, 19, 14, 16, 0, 0, 65, 76, 31,
+	0, 13, 0, 0, 22, -2, 28, 60, 0, 20,
+	0, 21, 32, 23,
 }
 
 var GosTok1 = [...]int8{
 	1, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	3, 3, 3, 23, 3, 3, 3, 3, 3, 3,
-	34, 35, 13, 10, 32, 11, 33, 14, 3, 3,
-	3, 3, 3, 3, 3, 3, 3, 3, 37, 36,
-	3, 29, 3, 3, 3, 3, 3, 3, 3, 3,
+	3, 3, 3, 24, 3, 3, 3, 3, 3, 3,
+	35, 36, 14, 11, 33, 12, 34, 15, 3, 3,
+	3, 3, 3, 3, 3, 3, 3, 3, 38, 37,
+	3, 30, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	3, 30, 3, 31, 3, 3, 3, 3, 3, 3,
+	3, 31, 3, 32, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 	3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-	3, 3, 3, 27, 3, 28,
+	3, 3, 3, 28, 3, 29,
 }
 
 var GosTok2 = [...]int8{
-	2, 3, 4, 5, 6, 7, 8, 9, 12, 15,
-	16, 17, 18, 19, 20, 21, 22, 24, 25, 26,
-	38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-	48, 49, 50, 51,
+	2, 3, 4, 5, 6, 7, 8, 9, 10, 13,
+	16, 17, 18, 19, 20, 21, 22, 23, 25, 26,
+	27, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+	48, 49, 50, 51, 52, 53,
 }
 
 var GosTok3 = [...]int8{
@@ -931,71 +819,81 @@ Gosdefault:
 			GosVAL.typeRef = &typeRef{elem: GosDollar[3].typeRef, pos: Goslex.(*GosLex).Pos}
 		}
 	case 30:
+		GosDollar = GosS[Gospt-4 : Gospt+1]
+		{
+			GosVAL.funcCall = &funcCall{name: "map", returnTypes: []*typeRef{GosDollar[3].typeRef}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}
+		}
+	case 31:
+		GosDollar = GosS[Gospt-6 : Gospt+1]
+		{
+			GosVAL.funcCall = &funcCall{name: "map", params: []*expression{GosDollar[5].expression}, returnTypes: []*typeRef{GosDollar[3].typeRef}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}
+		}
+	case 32:
+		GosDollar = GosS[Gospt-8 : Gospt+1]
+		{
+			GosVAL.funcCall = &funcCall{name: "map", params: []*expression{GosDollar[5].expression, GosDollar[7].expression}, returnTypes: []*typeRef{GosDollar[3].typeRef}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}
+		}
+	case 33:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindBlock, stmt: GosDollar[2].statements, pos: Goslex.(*GosLex).Pos}
 		}
-	case 31:
-		GosDollar = GosS[Gospt-0 : Gospt+1]
-		{
-			GosVAL.statements = []*statement{}
-		}
-	case 32:
+	case 34:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.statements = []*statement{GosDollar[1].statement}
 		}
-	case 33:
+	case 35:
 		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.statements = append(GosDollar[1].statements, GosDollar[2].statement)
 		}
-	case 34:
-		GosDollar = GosS[Gospt-2 : Gospt+1]
-		{
-			GosVAL.statement = GosDollar[1].statement
-		}
-	case 35:
-		GosDollar = GosS[Gospt-2 : Gospt+1]
-		{
-			GosVAL.statement = &statement{kind: stmtKindVar, stmt: GosDollar[1].varDef, pos: Goslex.(*GosLex).Pos}
-		}
 	case 36:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
+		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.statement = GosDollar[1].statement
 		}
 	case 37:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
+		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
-			GosVAL.statement = &statement{kind: stmtKindIf, stmt: GosDollar[1].ifStatement, pos: Goslex.(*GosLex).Pos}
+			GosVAL.statement = &statement{kind: stmtKindVar, stmt: GosDollar[1].varDef, pos: Goslex.(*GosLex).Pos}
 		}
 	case 38:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.statement = &statement{kind: stmtKindFor, stmt: GosDollar[1].forStatement, pos: Goslex.(*GosLex).Pos}
+			GosVAL.statement = GosDollar[1].statement
 		}
 	case 39:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.statement = &statement{kind: stmtKindRet, stmt: GosDollar[1].expressions, pos: Goslex.(*GosLex).Pos}
+			GosVAL.statement = &statement{kind: stmtKindIf, stmt: GosDollar[1].ifStatement, pos: Goslex.(*GosLex).Pos}
 		}
 	case 40:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.statement = &statement{kind: stmtKindFor, stmt: GosDollar[1].forStatement, pos: Goslex.(*GosLex).Pos}
+		}
+	case 41:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.statement = &statement{kind: stmtKindRet, stmt: GosDollar[1].expressions, pos: Goslex.(*GosLex).Pos}
+		}
+	case 42:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.varDef = &varDef{names: GosDollar[2].vals, tip: GosDollar[3].typeRef, pos: Goslex.(*GosLex).Pos}
 		}
-	case 41:
+	case 43:
 		GosDollar = GosS[Gospt-5 : Gospt+1]
 		{
 			GosVAL.varDef = &varDef{names: GosDollar[2].vals, tip: GosDollar[3].typeRef, init: GosDollar[5].expressions, pos: Goslex.(*GosLex).Pos}
 		}
-	case 42:
+	case 44:
 		GosDollar = GosS[Gospt-4 : Gospt+1]
 		{
 			GosVAL.varDef = &varDef{names: GosDollar[2].vals, init: GosDollar[4].expressions, pos: Goslex.(*GosLex).Pos}
 		}
-	case 43:
+	case 45:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.assignment = &assignment{left: GosDollar[1].lvList, right: GosDollar[3].expressions, pos: Goslex.(*GosLex).Pos}
@@ -1003,306 +901,313 @@ Gosdefault:
 				lv.forAssignment = true
 			}
 		}
-	case 44:
+	case 46:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.varDef = &varDef{lvalues: GosDollar[1].lvList, init: GosDollar[3].expressions, pos: Goslex.(*GosLex).Pos}
 		}
-	case 45:
+	case 47:
 		GosDollar = GosS[Gospt-4 : Gospt+1]
 		{
 			GosVAL.funcCall = &funcCall{name: GosDollar[1].val, params: GosDollar[3].expressions, pos: Goslex.(*GosLex).Pos}
 		}
-	case 46:
+	case 48:
 		GosDollar = GosS[Gospt-0 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindEmpty, pos: Goslex.(*GosLex).Pos}
 		}
-	case 47:
+	case 49:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindExpression, stmt: GosDollar[1].expression, pos: Goslex.(*GosLex).Pos}
 		}
-	case 48:
+	case 50:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.statement = GosDollar[1].statement
 		}
-	case 49:
+	case 51:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindAssign, stmt: GosDollar[1].assignment, pos: Goslex.(*GosLex).Pos}
 		}
-	case 50:
+	case 52:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindInit, stmt: GosDollar[1].varDef, pos: Goslex.(*GosLex).Pos}
 		}
-	case 51:
+	case 53:
 		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindInc, stmt: GosDollar[1].lvalue, pos: Goslex.(*GosLex).Pos}
 		}
-	case 52:
+	case 54:
 		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.statement = &statement{kind: stmtKindDec, stmt: GosDollar[1].lvalue, pos: Goslex.(*GosLex).Pos}
 		}
-	case 53:
+	case 55:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.ifStatement = &ifStatement{condition: GosDollar[2].expression, thn: GosDollar[3].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 54:
+	case 56:
 		GosDollar = GosS[Gospt-5 : Gospt+1]
 		{
 			GosVAL.ifStatement = &ifStatement{condition: GosDollar[2].expression, thn: GosDollar[3].statement, els: GosDollar[5].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 55:
+	case 57:
 		GosDollar = GosS[Gospt-5 : Gospt+1]
 		{
 			GosVAL.ifStatement = &ifStatement{condition: GosDollar[2].expression, thn: GosDollar[3].statement, els: &statement{kind: stmtKindIf, stmt: GosDollar[5].ifStatement, pos: Goslex.(*GosLex).Pos}}
 		}
-	case 56:
+	case 58:
 		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.forStatement = &forStatement{block: GosDollar[2].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 57:
+	case 59:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.forStatement = &forStatement{condition: GosDollar[2].expression, block: GosDollar[3].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 58:
+	case 60:
 		GosDollar = GosS[Gospt-7 : Gospt+1]
 		{
 			GosVAL.forStatement = &forStatement{condition: GosDollar[4].expression, initStmt: GosDollar[2].statement, postStmt: GosDollar[6].statement, block: GosDollar[7].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 59:
+	case 61:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.forStatement = &forStatement{rangeStmt: GosDollar[2].statement, block: GosDollar[3].statement, pos: Goslex.(*GosLex).Pos}
 		}
-	case 60:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
+	case 62:
+		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
 			GosVAL.expressions = []*expression(nil)
 		}
-	case 61:
-		GosDollar = GosS[Gospt-2 : Gospt+1]
+	case 63:
+		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.expressions = GosDollar[2].expressions
-		}
-	case 62:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.statement = GosDollar[1].statement
-		}
-	case 63:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.statement = GosDollar[1].statement
 		}
 	case 64:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.expression = GosDollar[1].expression
+			GosVAL.statement = GosDollar[1].statement
 		}
 	case 65:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.statement = &statement{kind: stmtKindAssign, stmt: GosDollar[1].assignment, pos: Goslex.(*GosLex).Pos}
+			GosVAL.statement = GosDollar[1].statement
 		}
 	case 66:
-		GosDollar = GosS[Gospt-3 : Gospt+1]
-		{
-			GosVAL.statement = &statement{kind: stmtKindInit, stmt: GosDollar[1].assignment, pos: Goslex.(*GosLex).Pos}
-		}
-	case 67:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.lvalue = &lvalue{kind: lvalueKindIdent, stmt: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
-		}
-	case 68:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.lvalue = &lvalue{kind: lvalueKindIndex, stmt: GosDollar[1].arrayAccess, pos: Goslex.(*GosLex).Pos}
-		}
-	case 69:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.lvalue = &lvalue{kind: lvalueKindField, stmt: GosDollar[1].fieldAccess, pos: Goslex.(*GosLex).Pos}
-		}
-	case 70:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.lvList = []*lvalue{GosDollar[1].lvalue}
-		}
-	case 71:
-		GosDollar = GosS[Gospt-3 : Gospt+1]
-		{
-			GosVAL.lvList = append(GosDollar[1].lvList, GosDollar[3].lvalue)
-		}
-	case 72:
-		GosDollar = GosS[Gospt-4 : Gospt+1]
-		{
-			GosVAL.arrayAccess = &arrayAccess{lvalue: GosDollar[1].lvalue, expression: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
-		}
-	case 73:
-		GosDollar = GosS[Gospt-3 : Gospt+1]
-		{
-			GosVAL.fieldAccess = &fieldAccess{lvalue: GosDollar[1].lvalue, field: GosDollar[3].val, pos: Goslex.(*GosLex).Pos}
-		}
-	case 74:
-		GosDollar = GosS[Gospt-6 : Gospt+1]
-		{
-			GosVAL.methodCall = &methodCall{lvalue: GosDollar[1].lvalue, name: GosDollar[3].val, params: GosDollar[5].expressions, pos: Goslex.(*GosLex).Pos}
-		}
-	case 75:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.expression = GosDollar[1].expression
 		}
-	case 76:
+	case 67:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.statement = &statement{kind: stmtKindAssign, stmt: GosDollar[1].assignment, pos: Goslex.(*GosLex).Pos}
+		}
+	case 68:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindParens, left: GosDollar[2].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.statement = &statement{kind: stmtKindInit, stmt: GosDollar[1].assignment, pos: Goslex.(*GosLex).Pos}
+		}
+	case 69:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.lvalue = &lvalue{kind: lvalueKindIdent, stmt: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
+		}
+	case 70:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.lvalue = &lvalue{kind: lvalueKindIndex, stmt: GosDollar[1].arrayAccess, pos: Goslex.(*GosLex).Pos}
+		}
+	case 71:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.lvalue = &lvalue{kind: lvalueKindField, stmt: GosDollar[1].fieldAccess, pos: Goslex.(*GosLex).Pos}
+		}
+	case 72:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.lvList = []*lvalue{GosDollar[1].lvalue}
+		}
+	case 73:
+		GosDollar = GosS[Gospt-3 : Gospt+1]
+		{
+			GosVAL.lvList = append(GosDollar[1].lvList, GosDollar[3].lvalue)
+		}
+	case 74:
+		GosDollar = GosS[Gospt-4 : Gospt+1]
+		{
+			GosVAL.arrayAccess = &arrayAccess{lvalue: GosDollar[1].lvalue, expression: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+		}
+	case 75:
+		GosDollar = GosS[Gospt-3 : Gospt+1]
+		{
+			GosVAL.fieldAccess = &fieldAccess{lvalue: GosDollar[1].lvalue, field: GosDollar[3].val, pos: Goslex.(*GosLex).Pos}
+		}
+	case 76:
+		GosDollar = GosS[Gospt-6 : Gospt+1]
+		{
+			GosVAL.methodCall = &methodCall{lvalue: GosDollar[1].lvalue, name: GosDollar[3].val, params: GosDollar[5].expressions, pos: Goslex.(*GosLex).Pos}
 		}
 	case 77:
-		GosDollar = GosS[Gospt-3 : Gospt+1]
+		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindSum, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = GosDollar[1].expression
 		}
 	case 78:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindSub, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindParens, left: GosDollar[2].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 79:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindMul, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindSum, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 80:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindDiv, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindSub, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 81:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindAnd, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindMul, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 82:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindOr, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindDiv, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 83:
-		GosDollar = GosS[Gospt-2 : Gospt+1]
+		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindNot, left: GosDollar[2].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindAnd, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 84:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindOr, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 85:
-		GosDollar = GosS[Gospt-3 : Gospt+1]
+		GosDollar = GosS[Gospt-2 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindNotEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindNot, left: GosDollar[2].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 86:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindGreaterThan, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 87:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindLessThan, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindNotEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 88:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindGreaterThanOrEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindGreaterThan, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 89:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindLessThanOrEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expression = &expression{kind: expressionKindLessThan, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 90:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
+		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expressions = []*expression{GosDollar[1].expression}
+			GosVAL.expression = &expression{kind: expressionKindGreaterThanOrEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 91:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
-			GosVAL.expressions = append(GosDollar[1].expressions, GosDollar[3].expression)
+			GosVAL.expression = &expression{kind: expressionKindLessThanOrEqualTo, left: GosDollar[1].expression, right: GosDollar[3].expression, pos: Goslex.(*GosLex).Pos}
 		}
 	case 92:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.expression = &expression{kind: expressionKindConst, left: GosDollar[1].constant, pos: Goslex.(*GosLex).Pos}
+			GosVAL.expressions = []*expression{GosDollar[1].expression}
 		}
 	case 93:
+		GosDollar = GosS[Gospt-3 : Gospt+1]
+		{
+			GosVAL.expressions = append(GosDollar[1].expressions, GosDollar[3].expression)
+		}
+	case 94:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.expression = &expression{kind: expressionKindConst, left: GosDollar[1].constant, pos: Goslex.(*GosLex).Pos}
+		}
+	case 95:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			{
 				GosVAL.expression = &expression{kind: expressionKindMethod, left: GosDollar[1].methodCall, pos: Goslex.(*GosLex).Pos}
 			}
 		}
-	case 94:
+	case 96:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			GosVAL.expression = &expression{kind: expressionKindLValue, left: GosDollar[1].lvalue, pos: Goslex.(*GosLex).Pos}
 		}
-	case 95:
+	case 97:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
 			{
 				GosVAL.expression = &expression{kind: expressionKindFunc, left: GosDollar[1].funcCall, pos: Goslex.(*GosLex).Pos}
 			}
 		}
-	case 96:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.constant = &constant{kind: constKindInt, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
-		}
-	case 97:
-		GosDollar = GosS[Gospt-1 : Gospt+1]
-		{
-			GosVAL.constant = &constant{kind: constKindFloat, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
-		}
 	case 98:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.constant = &constant{kind: constKindChar, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
+			{
+				GosVAL.expression = &expression{kind: expressionKindFunc, left: GosDollar[1].funcCall, pos: Goslex.(*GosLex).Pos}
+			}
 		}
 	case 99:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.constant = &constant{kind: constKindString, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
+			GosVAL.constant = &constant{kind: constKindInt, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
 		}
 	case 100:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.constant = &constant{kind: constKindBool, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
+			GosVAL.constant = &constant{kind: constKindFloat, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
 		}
 	case 101:
-		GosDollar = GosS[Gospt-0 : Gospt+1]
+		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.expressions = []*expression{}
+			GosVAL.constant = &constant{kind: constKindChar, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
 		}
 	case 102:
 		GosDollar = GosS[Gospt-1 : Gospt+1]
 		{
-			GosVAL.expressions = []*expression{GosDollar[1].expression}
+			GosVAL.constant = &constant{kind: constKindString, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
 		}
 	case 103:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.constant = &constant{kind: constKindBool, value: GosDollar[1].val, pos: Goslex.(*GosLex).Pos}
+		}
+	case 104:
+		GosDollar = GosS[Gospt-0 : Gospt+1]
+		{
+			GosVAL.expressions = []*expression{}
+		}
+	case 105:
+		GosDollar = GosS[Gospt-1 : Gospt+1]
+		{
+			GosVAL.expressions = []*expression{GosDollar[1].expression}
+		}
+	case 106:
 		GosDollar = GosS[Gospt-3 : Gospt+1]
 		{
 			GosVAL.expressions = append(GosDollar[1].expressions, GosDollar[3].expression)

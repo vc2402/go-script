@@ -4,9 +4,7 @@
 package compiler
 
 import (
-	"fmt"
-	"go/scanner"
-	"go/token"
+	"github.com/vc2402/go-script/runtime"
 )
 
 %}
@@ -44,8 +42,6 @@ import (
 
 %type <fn> function
 
-//%type <functions> functions
-
 %type <arg> argument
 
 %type <args> arguments_list func_return types_list
@@ -74,7 +70,7 @@ import (
 
 %type <fieldAccess> field_access
 
-%type <funcCall> function_call
+%type <funcCall> function_call make_call
 
 %type <methodCall> method_call
 
@@ -86,7 +82,7 @@ import (
 
 %type <forStatement> for_stmt
 
-%token <val> IDENT INT FLOAT CHAR STRING BOOL
+%token <val> IDENT INT FLOAT CHAR STRING BOOL FUNCNAME
 
 %left '+' '-' LOR
 
@@ -112,7 +108,7 @@ import (
 
 %token ';' ':' ELLIPSIS
 
-%token VAR FUNC PACKAGE MAP IF ELSE SWITCH CASE FOR BREAK CONTINUE RANGE RETURN
+%token VAR FUNC PACKAGE MAP IF ELSE SWITCH CASE FOR BREAK CONTINUE RANGE RETURN MAKE
 
 //%token	<val>
 
@@ -148,7 +144,7 @@ file_contents:
 	;
 
 function:
-	FUNC IDENT '(' arguments_list ')' func_return block {$$=&function{name:$2, args: $4, ret: $6, body: $7, pos: Goslex.(*GosLex).Pos}}
+	FUNC FUNCNAME '(' arguments_list ')' func_return block {$$=&function{name:$2, args: $4, ret: $6, body: $7, pos: Goslex.(*GosLex).Pos}}
 	;
 
 arguments_list:
@@ -184,13 +180,18 @@ type_ref:
 |   '[' ']' type_ref {$$=&typeRef{elem:$3, pos: Goslex.(*GosLex).Pos}}
 	;
 
+make_call:
+	MAKE '(' type_ref ')'					{$$=&funcCall{name:"map", returnTypes: []*typeRef{$3}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}}
+|	MAKE '(' type_ref ',' expression ')'			{$$=&funcCall{name:"map", params:[]*expression{$5}, returnTypes: []*typeRef{$3}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}}
+|	MAKE '(' type_ref ',' expression ',' expression ')'	{$$=&funcCall{name:"map", params:[]*expression{$5, $7}, returnTypes: []*typeRef{$3}, convertTo: runtime.VarKind(-1), pos: Goslex.(*GosLex).Pos}}
+	;
 block:
 	'{' statements '}' {$$=&statement{kind:stmtKindBlock, stmt:$2, pos: Goslex.(*GosLex).Pos}}
 	;
 
 statements:
-		{$$=[]*statement{}}
-|	statement {$$=[]*statement{$1}}
+//		{$$=[]*statement{}}
+	statement {$$=[]*statement{$1}}
 |	statements statement {$$=append($1,$2)}
 	;
 
@@ -222,8 +223,8 @@ var_initialization:
 	;
 
 function_call:
-	IDENT '(' params ')'  {$$=&funcCall{name:$1, params:$3, pos: Goslex.(*GosLex).Pos}}
-//|	IDENT '.' IDENT '(' params ')'  {$$=&funcCall{pckg: $1, name:$3, params:$5, pos: Goslex.(*GosLex).Pos}}
+	FUNCNAME '(' params ')'  {$$=&funcCall{name:$1, params:$3, pos: Goslex.(*GosLex).Pos}}
+//|	IDENT '.' FUNCNAME '(' params ')'  {$$=&funcCall{pckg: $1, name:$3, params:$5, pos: Goslex.(*GosLex).Pos}}
 	;
 
 simple_stmt:
@@ -253,8 +254,8 @@ for_stmt:
 	;
 
 ret_stmt:
-	RETURN			{$$=[]*expression(nil)}
-|	RETURN expr_list	{$$=$2}
+	RETURN	';'		{$$=[]*expression(nil)}
+|	RETURN expr_list ';'	{$$=$2}
 	;
 
 init_stmt:
@@ -294,7 +295,7 @@ field_access:
 	;
 
 method_call:
-	lvalue '.' IDENT '(' params ')' {$$=&methodCall{lvalue:$1, name: $3, params: $5, pos: Goslex.(*GosLex).Pos}}
+	lvalue '.' FUNCNAME '(' params ')' {$$=&methodCall{lvalue:$1, name: $3, params: $5, pos: Goslex.(*GosLex).Pos}}
 	;
 
 expression:
@@ -321,10 +322,11 @@ expr_list:
 	;
 
 expr_part:
-	const {$$=&expression{kind:expressionKindConst, left: $1, pos: Goslex.(*GosLex).Pos}}
-|	method_call {{$$=&expression{kind:expressionKindMethod, left: $1, pos: Goslex.(*GosLex).Pos}}}
-|	lvalue {$$=&expression{kind:expressionKindLValue, left: $1, pos: Goslex.(*GosLex).Pos}}
-|	function_call {{$$=&expression{kind:expressionKindFunc, left: $1, pos: Goslex.(*GosLex).Pos}}}
+	const 		{$$=&expression{kind:expressionKindConst, left: $1, pos: Goslex.(*GosLex).Pos}}
+|	method_call 	{{$$=&expression{kind:expressionKindMethod, left: $1, pos: Goslex.(*GosLex).Pos}}}
+|	lvalue 		{$$=&expression{kind:expressionKindLValue, left: $1, pos: Goslex.(*GosLex).Pos}}
+|	function_call	{{$$=&expression{kind:expressionKindFunc, left: $1, pos: Goslex.(*GosLex).Pos}}}
+|	make_call	{{$$=&expression{kind:expressionKindFunc, left: $1, pos: Goslex.(*GosLex).Pos}}}
 	;
 
 const:
@@ -346,86 +348,3 @@ param:
 
 
 %%
-
-// The parser expects the lexer to return 0 on EOF.  Give it a name
-// for clarity.
-const eof = 0
-
-// The parser uses the type <prefix>Lex as a lexer. It must provide
-// the methods Lex(*<prefix>SymType) int and Error(string).
-type GosLex struct {
-	S   scanner.Scanner
-	Pos token.Pos
-	Fset *token.FileSet
-	File
-}
-
-// The parser calls this method to get each new token. This
-// implementation returns operators and NUM.
-func (x *GosLex) Lex(yylval *GosSymType) int {
-	for {
-		pos, tok, lit := x.S.Scan()
-		if tok == token.EOF {
-			return eof
-		}
-		x.Pos = pos
-		yylval.val = lit
-		switch tok {
-			case token.INT: return INT
-			case token.CHAR: return CHAR
-			case token.STRING: return STRING
-			case token.FLOAT: return FLOAT
-			case token.ADD: return '+'
-			case token.SUB: return '-'
-			case token.MUL: return '*'
-			case token.QUO: return '/'
-			case token.LOR: return LOR
-			case token.LAND: return LAND
-			case token.DEFINE: return DEFINE
-			case token.GTR: return GT
-			case token.LSS: return LT
-			case token.INC: return INC
-			case token.DEC: return DEC
-			case token.EQL: return EQ
-			case token.NEQ: return NEQ
-			case token.LEQ: return LTE
-			case token.GEQ: return GTE
-			case token.LBRACE: return '{'
-			case token.RBRACE: return '}'
-			case token.ASSIGN: return '='
-			case token.LPAREN: return '('
-			case token.RPAREN: return ')'
-			case token.LBRACK: return '['
-			case token.RBRACK: return ']'
-			case token.COMMA: return ','
-			case token.PERIOD: return '.'
-			case token.SEMICOLON: return ';'
-			case token.COLON: return ':'
-			case token.VAR: return VAR
-			case token.FUNC: return FUNC
-			case token.IDENT:
-			  if lit == "true" || lit == "false" {
-			    return BOOL
-			  }
-			  return IDENT
-			case token.PACKAGE: return PACKAGE
-			case token.MAP: return MAP
-			case token.IF: return IF
-			case token.ELSE: return ELSE
-			case token.FOR: return FOR
-			case token.RANGE: return RANGE
-			case token.SWITCH: return SWITCH
-			case token.CASE: return CASE
-			case token.BREAK: return BREAK
-			case token.CONTINUE: return CONTINUE
-			case token.RETURN: return RETURN
-			default: return int(tok)
-		}
-	}
-}
-
-// The parser calls this method on a parse error.
-func (x *GosLex) Error(s string) {
-	fmt.Printf("parse error: %s: %s", x.Fset.Position(x.Pos), s)
-}
-

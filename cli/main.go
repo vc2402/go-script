@@ -9,7 +9,9 @@ import (
 	"go/scanner"
 	"go/token"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"reflect"
 	"strings"
 	"time"
@@ -101,7 +103,12 @@ func compile(files ...string) error {
 
 		file, err := os.ReadFile(name)
 		if err != nil {
-			return err
+			if errors.Is(err, fs.ErrNotExist) && path.Ext(name) == "" {
+				file, err = os.ReadFile(name + ".gos")
+			}
+			if err != nil {
+				return err
+			}
 		}
 		f := fileSet.AddFile(name, fileSet.Base(), len(file))
 		s.Init(f, file, nil /* no error handler */, 0 /*scanner.ScanComments*/)
@@ -109,6 +116,7 @@ func compile(files ...string) error {
 		pr := compiler.GosParse(lex)
 		if pr != 0 {
 			initProject()
+			fmt.Println(lex.Err())
 			return nil
 		} else {
 			p.AddFile(lex.File)
@@ -251,7 +259,7 @@ type TestType struct {
 }
 
 func (tt *TestType) Print() {
-	fmt.Println("TEstType: ", tt.StringValue)
+	fmt.Println("TestType: ", tt.StringValue)
 }
 
 func (tt *TestType) New() *Subtype {

@@ -164,7 +164,6 @@ func (p *Compiler) processFunction1(s *scope, f *function) (*scope, error) {
 	fs := &scope{parent: s, source: f, idx: len(s.scopes)}
 	fs.descriptor = &runtime.ScopeDescriptor{Kind: runtime.SKFunction, ScopeSpecific: runtime.FuncScopeDescriptor{Func: fd}}
 	s.scopes = append(s.scopes, fs)
-	//TODO: correct scope vars definition sequence
 	idx, err := p.addVar(s, f.name, fs)
 	if err != nil {
 		return nil, WrapError(err, f.pos)
@@ -1592,7 +1591,17 @@ func (fc *funcCall) isTypeConversion() bool {
 		}
 		fc.returnTypes = []*typeRef{{name: fc.name}}
 	}
-	return fc.convertTo != runtime.VKUndef
+	return fc.convertTo != runtime.VKUndef && fc.convertTo != runtime.VarKind(-1)
+}
+
+func (fc *funcCall) isEmbedded() bool {
+	if fc.returnTypes == nil && fc.pckg == "" {
+		switch fc.name {
+		case "len", "cap", "append":
+			fc.convertTo = runtime.VarKind(-1)
+		}
+	}
+	return fc.convertTo == runtime.VarKind(-1)
 }
 
 func (p *Compiler) getDebugInfo(pos token.Pos) any {

@@ -4,12 +4,14 @@ func f(a int, b int) (m int, n int) {
     //fmt.Println("f: params: ", a, b)
   d := 23 + a - 1 + global/2
   //fmt.Println("returning: ", d)
+   a = a * 2
   return d, 34
 }
 
 func setG(nv int) {
+   fmt.Println("nv: ", nv)
    a, b := f(nv, nv)
-   fmt.Println("a: ", a, "; b:", b)
+   fmt.Println("a: ", a, "; b:", b, "nv: ", nv)
    var t time.Time
      t = time.Now()
      fmt.Println(t.Format("2006-01-02"))
@@ -46,4 +48,22 @@ func setG(nv int) {
        fmt.Println("parent: ", tt)
        tt.Print()
     }
+}
+
+func factorial(val int) int {
+  if val > 1 {
+    return val * factorial(val-1)
+  }
+  return 1
+}
+
+func testFunc(a int) (r1 int, r2 float) {
+  return a*10, float(a)/2
+}
+
+func testBool(a int) bool {
+  if a>10 {
+    return true
+  }
+  return false
 }

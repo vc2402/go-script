@@ -705,6 +705,34 @@ func (v *Value) GetFunction() any {
 	panic("GetFunction: var is not a function")
 }
 
+func (v *Value) Value() any {
+	return v.val
+}
+
+func NewValue(from any) *Value {
+	ret := &Value{val: from, VarDescriptor: &VarDescriptor{kind: VKUndef}}
+	switch v := from.(type) {
+	case int:
+		ret.kind = VKInt
+		ret.val = Int(v)
+	case float32:
+		ret.kind = VKFloat
+		ret.val = Float(v)
+	case float64:
+		ret.kind = VKFloat
+		ret.val = Float(v)
+	case bool:
+		ret.kind = VKBool
+	case string:
+		ret.kind = VKString
+	case reflect.Value:
+		ret.kind = VKExternal
+	default:
+		panic("invalid type")
+	}
+	return ret
+}
+
 func (v *Value) IsFunction() bool {
 	return v.kind == VKFunc ||
 		v.kind == VKExternal && reflect.Indirect(v.val.(reflect.Value)).Type().Kind() == reflect.Func

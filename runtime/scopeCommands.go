@@ -42,7 +42,7 @@ func scopeLoadConst(eng *Engine, op *Operation) {
 	case VKString:
 		constant.val = op.sp
 	case VKBool:
-		constant.val = op.ip1 != 0
+		constant.val = op.ip2 != 0
 	}
 	eng.push(constant)
 }

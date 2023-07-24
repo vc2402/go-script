@@ -80,6 +80,7 @@ func (eng *Engine) exec() (ret []*Value) {
 	for eng.next() {
 	}
 	ret = eng.stack
+	eng.stack = nil
 	return
 }
 

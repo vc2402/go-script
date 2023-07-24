@@ -1,3 +1,3 @@
-module github.com/vc2403/go-script
+module github.com/vc2402/go-script
 
-go 1.18
+go 1.19
