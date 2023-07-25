@@ -728,7 +728,9 @@ func NewValue(from any) *Value {
 	case reflect.Value:
 		ret.kind = VKExternal
 	default:
-		panic("invalid type")
+		ret.kind = VKExternal
+		ret.val = reflect.ValueOf(from)
+		//panic("invalid type")
 	}
 	return ret
 }
