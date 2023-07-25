@@ -11,6 +11,7 @@ const (
 	ExeccGoTo
 	ExeccIfThen
 	ExeccIfThenElse
+	ExecEnterScope
 )
 
 var execExecutors = []CommandExecutor{
@@ -24,6 +25,7 @@ var execExecutors = []CommandExecutor{
 	execGoTo,
 	execIfThen,
 	execIfThenElse,
+	execEnterScope,
 }
 
 func execCall(eng *Engine, op *Operation) {
@@ -95,4 +97,9 @@ func execIfThenElse(eng *Engine, op *Operation) {
 	}
 	scope := eng.Scope()
 	scope.createScope(eng, scopeIdx)
+}
+
+func execEnterScope(eng *Engine, op *Operation) {
+	scope := eng.Scope()
+	scope.createScope(eng, op.ip1)
 }

@@ -265,6 +265,7 @@ func (p *Compiler) processStatement2(s *scope, stmt *statement) error {
 		bs := &scope{parent: s, source: stmt, idx: len(s.scopes)}
 		bs.descriptor = &runtime.ScopeDescriptor{Kind: runtime.SKBlock}
 		s.scopes = append(s.scopes, bs)
+		s.descriptor.Program.Add(runtime.CKExec, runtime.ExecEnterScope, bs.idx).SetDebugInfo(p.getDebugInfo(stmt.pos))
 		return p.processBlock(bs, stmt.stmt.([]*statement))
 	case stmtKindIf:
 		return p.processIf(s, stmt.stmt.(*ifStatement))
