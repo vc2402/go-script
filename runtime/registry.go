@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
@@ -32,7 +33,7 @@ func (r *Registry) GetPackage(alias string) (*Package, error) {
 	if p, ok := r.packages[alias]; ok {
 		return p, nil
 	}
-	return nil, ErrPackageNotFound
+	return nil, fmt.Errorf("%w: %s", ErrPackageNotFound, alias)
 }
 
 func (r *Registry) GetType(pckg, name string) (reflect.Type, error) {
@@ -55,7 +56,7 @@ func (r *Registry) Package(path string, alias string) (*Package, error) {
 	}
 	if p, ok := r.packages[alias]; ok {
 		if p.path != path {
-			return nil, ErrDuplicateAlias
+			return nil, fmt.Errorf("%w: %s", ErrDuplicateAlias, alias)
 		}
 		return p, nil
 	}
