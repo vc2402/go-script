@@ -18,6 +18,7 @@ func (eng *Engine) Run(function string, params []*Value) (ret []*Value, err erro
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("Recovered: \n", r)
+			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 	if len(eng.scope) != 1 {

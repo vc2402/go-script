@@ -268,6 +268,7 @@ func (tt *TestType) New() *Subtype {
 
 type Subtype struct {
 	parent *TestType
+	Value  int
 }
 
 func (st *Subtype) Parent() (*TestType, error) {

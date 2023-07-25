@@ -758,6 +758,10 @@ func (p *Compiler) processLValueExpression(s *scope, lv *lvalue) error {
 			s.descriptor.AddVarIdx(*vv, idx)
 			s.descriptor.Program.Add(runtime.CKScope, runtime.SCGetVar, 0, idx).SetDebugInfo(p.getDebugInfo(fa.pos))
 		} else {
+			err = p.processLValueExpression(s, fa.lvalue)
+			if err != nil {
+				return WrapError(err, fa.lvalue.pos)
+			}
 			//if fa.lvalue.tip == nil {
 			//	return NewInternalError("compiler error: lvalue type is undefined", fa.pos)
 			//}
@@ -1474,7 +1478,11 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 					}
 				}
 				if fa.lvalue.tip.refType != nil {
-					sf, ok := fa.lvalue.tip.refType.FieldByName(fa.field)
+					tip := fa.lvalue.tip.refType
+					if tip.Kind() == reflect.Pointer {
+						tip = tip.Elem()
+					}
+					sf, ok := tip.FieldByName(fa.field)
 					if !ok {
 						return nil,
 							WrapError(
