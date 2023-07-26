@@ -198,10 +198,11 @@ func (v *Value) assignReflect(newVal *Value) {
 }
 
 func (v *Value) assignFromReflect(newVal reflect.Value) {
-	if newVal.IsNil() {
-		v.val = nil
-		return
-	}
+	//TODO check if is nil
+	//if newVal.IsNil() {
+	//	v.val = nil
+	//	return
+	//}
 	switch v.kind {
 	case VKInt:
 		if newVal.CanInt() {
@@ -502,14 +503,15 @@ func (eng *Engine) convert(v *Value, kind VarKind) (ret *Value) {
 func (eng *Engine) compare(v *Value, to *Value) int {
 	v = v.deref(eng)
 	to = to.deref(eng)
-	ln := eng.isNil(v)
-	rn := eng.isNil(to)
-	if ln && rn {
-		return 0
-	}
-	if ln || rn {
-		return 1
-	}
+	//TODO check if is nil
+	//ln := eng.isNil(v)
+	//rn := eng.isNil(to)
+	//if ln && rn {
+	//	return 0
+	//}
+	//if ln || rn {
+	//	return 1
+	//}
 	var comp int
 	switch v.kind {
 	case VKInt:
