@@ -762,44 +762,11 @@ func (p *Compiler) processLValueExpression(s *scope, lv *lvalue) error {
 			if err != nil {
 				return WrapError(err, fa.lvalue.pos)
 			}
-			//if fa.lvalue.tip == nil {
-			//	return NewInternalError("compiler error: lvalue type is undefined", fa.pos)
-			//}
-			//if fa.lvalue.tip.pckg != "" || fa.lvalue.tip.refType != nil {
-			//	if fa.lvalue.tip.refType == nil {
-			//		ev, err := p.getExtVar(fa.lvalue.tip.pckg, fa.lvalue.tip.name)
-			//		if err != nil {
-			//			return WrapError(err, fa.lvalue.pos)
-			//		}
-			//		if ev.Kind() == runtime.VKExternal {
-			//			fa.lvalue.tip.refType = ev.Reflect().Type()
-			//		}
-			//	}
-			//	if fa.lvalue.tip.refType != nil {
-			//		sf, ok := fa.lvalue.tip.refType.FieldByName(fa.field)
-			//		if !ok {
-			//			return WrapError(
-			//				fmt.Errorf("field '%s' not found in type '%s'", fa.field, fa.lvalue.tip.refType.Name()),
-			//				fa.pos,
-			//			)
-			//		}
-			//		fa.tip.refType = sf.Type
-			//	} else {
-			//		return NewInternalError("compiler error: lvalue type can not be determined", fa.pos)
-			//	}
-			//} else {
-			//	return NewInternalError("compiler error: lvalue type is undefined or not complex", fa.pos)
-			//}
-			//TODO use index of field
-			//field := runtime.VarDescriptor{}
-			//field.SetStringInitValue(fa.field)
-			//varName := fmt.Sprintf("%%fld%d", len(s.vars))
-			//idx, err := p.addVar(s, varName, fa.field)
-			//if err != nil {
-			//	return err
-			//}
-			//s.descriptor.AddVarIdx(field, idx)
-			//s.descriptor.Program.Add(runtime.CKScope, runtime.SCGetVar, 0, idx).SetDebugInfo(p.getDebugInfo(lv.pos))
+			//check that field exists
+			_, err = getAttrType(fa.lvalue.tip, fa.field)
+			if err != nil {
+				return WrapError(err, fa.lvalue.pos)
+			}
 			s.descriptor.Program.Add(runtime.CKScope, runtime.SCLoadConst, int(runtime.VKString), 0, fa.field).SetDebugInfo(p.getDebugInfo(fa.pos))
 			s.descriptor.Program.Add(runtime.CKScope, runtime.SCDot)
 		}
@@ -1477,24 +1444,32 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 						fa.lvalue.tip.refType = ev.Reflect().Type()
 					}
 				}
-				if fa.lvalue.tip.refType != nil {
-					tip := fa.lvalue.tip.refType
-					if tip.Kind() == reflect.Pointer {
-						tip = tip.Elem()
-					}
-					sf, ok := tip.FieldByName(fa.field)
-					if !ok {
-						return nil,
-							WrapError(
-								fmt.Errorf("field '%s' not found in type '%s'", fa.field, fa.lvalue.tip.refType.Name()),
-								fa.pos,
-							)
-					}
-					fa.tip = &typeRef{name: sf.Type.Name(), pckg: sf.Type.PkgPath(), refType: sf.Type}
-					return fa.tip, nil
-				} else {
-					return nil, NewInternalError("compiler error: lvalue type can not be determined", fa.pos)
+				tip, err := getAttrType(fa.lvalue.tip, fa.field)
+				if err != nil {
+					return nil, WrapError(err, fa.pos)
 				}
+				return tip, nil
+				//if fa.lvalue.tip.refType != nil {
+				//  tip := fa.lvalue.tip.refType
+				//  if tip.Kind() == reflect.Pointer {
+				//    tip = tip.Elem()
+				//  }
+				//  sf, ok := tip.FieldByName(fa.field)
+				//  if !ok {
+				//    typeName := tip.Name()
+				//    if tip.Kind() == reflect.Pointer {
+				//      typeName = tip.Elem().Name()
+				//    }
+				//    return nil,
+				//      WrapError(
+				//        fmt.Errorf("field '%s' not found in type '%s'", fa.field, typeName),
+				//        fa.pos,
+				//      )
+				//  }
+
+				//} else {
+				//  return nil, NewInternalError("compiler error: lvalue type can not be determined", fa.pos)
+				//}
 			} else {
 				return nil, NewInternalError("compiler error: lvalue type is undefined for field access", fa.pos)
 			}
@@ -1502,6 +1477,28 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 		return nil, NewInternalError("compiler error: lvalue type is undefined or not complex", fa.pos)
 	}
 	return nil, fmt.Errorf("undefined lvalue kind: %d", lv.kind)
+}
+
+func getAttrType(ref *typeRef, fieldName string) (*typeRef, error) {
+	if ref.refType != nil {
+		tip := ref.refType
+		if tip.Kind() == reflect.Pointer {
+			tip = tip.Elem()
+		}
+		if tip.Kind() != reflect.Struct {
+			return nil, fmt.Errorf("type '%s' is not a struct", tip.Name())
+		}
+		sf, ok := tip.FieldByName(fieldName)
+		if !ok {
+			typeName := tip.Name()
+			if tip.Kind() == reflect.Pointer {
+				typeName = tip.Elem().Name()
+			}
+			return nil, fmt.Errorf("field '%s' not found in type '%s'", fieldName, typeName)
+		}
+		return &typeRef{name: sf.Type.Name(), pckg: sf.Type.PkgPath(), refType: sf.Type}, nil
+	}
+	return nil, errors.New("compiler error: lvalue type can not be determined")
 }
 
 func varDescriptorToTypeRef(vd *runtime.VarDescriptor) *typeRef {

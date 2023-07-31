@@ -48,7 +48,7 @@ func setG(nv int) {
        fmt.Println("parent: ", tt)
        tt.Print()
     }
-    st.Value = 100
+    //st.Value = 100
     fmt.Println("value: ", st.Value)
 }
 

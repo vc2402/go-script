@@ -254,7 +254,9 @@ func (eng *Engine) isNil(v *Value) bool {
 		return v.val == nil
 	}
 	val := v.val.(reflect.Value)
-	return val.IsZero() || val.IsNil()
+	return val.IsValid() && val.IsZero() ||
+		((val.Kind() == reflect.Pointer || val.Kind() == reflect.Interface || val.Kind() == reflect.Map || val.Kind() == reflect.Slice) &&
+			val.IsNil())
 }
 
 func (eng *Engine) sum(v *Value, o *Value) (ret *Value) {
@@ -473,7 +475,11 @@ func (eng *Engine) dot(v *Value, field *Value) (ret *Value) {
 		panic("dot for non struct")
 	}
 	val := reflect.Indirect(v.val.(reflect.Value))
-	ret = &Value{VarDescriptor: &VarDescriptor{kind: VKExternal}, val: val.FieldByName(field.getString())}
+	fieldName := field.getString()
+	if _, ok := val.Type().FieldByName(fieldName); !ok {
+		panic(fmt.Sprintf("field %s is not defined for type %s", fieldName, val.Type().Name()))
+	}
+	ret = &Value{VarDescriptor: &VarDescriptor{kind: VKExternal}, val: val.FieldByName(fieldName)}
 	return
 }
 
@@ -503,17 +509,20 @@ func (eng *Engine) convert(v *Value, kind VarKind) (ret *Value) {
 func (eng *Engine) compare(v *Value, to *Value) int {
 	v = v.deref(eng)
 	to = to.deref(eng)
-	//TODO check if is nil
-	//ln := eng.isNil(v)
-	//rn := eng.isNil(to)
-	//if ln && rn {
-	//	return 0
-	//}
-	//if ln || rn {
-	//	return 1
-	//}
+	ln := eng.isNil(v)
+	rn := eng.isNil(to)
+	if ln && rn {
+		return 0
+	}
+	if ln || rn {
+		return 1
+	}
 	var comp int
-	switch v.kind {
+	var kind = v.kind
+	if kind == VKExternal {
+		kind = to.kind
+	}
+	switch kind {
 	case VKInt:
 		comp = int(v.getInt() - to.getInt())
 	case VKFloat:
@@ -532,6 +541,34 @@ func (eng *Engine) compare(v *Value, to *Value) int {
 		panic("compare for char not implemented")
 	case VKString:
 		comp = strings.Compare(v.getString(), to.getString())
+	case VKExternal:
+		a := v.val.(reflect.Value)
+		b := to.val.(reflect.Value)
+		switch a.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			comp = int(v.getInt() - to.getInt())
+		case reflect.Float64, reflect.Float32:
+			comp = int(v.getFloat() - to.getFloat())
+		case reflect.Bool:
+			l := v.getBool()
+			r := to.getBool()
+			if l == r {
+				comp = 0
+			} else if !l {
+				comp = -1
+			} else {
+				comp = 1
+			}
+		case reflect.String:
+			comp = strings.Compare(v.getString(), to.getString())
+		default:
+			if a.Interface() == b.Interface() {
+				comp = 0
+			} else {
+				comp = 1
+			}
+		}
 	default:
 		panic(fmt.Sprintf("impossible conversion from %s to %s", varKinds[v.kind], varKinds[to.kind]))
 	}
@@ -590,16 +627,22 @@ func (v *Value) getString() string {
 		return strconv.FormatFloat(float64(v.val.(Float)), 'f', 2, 64)
 	case VKExternal:
 		if val, ok := v.val.(reflect.Value); ok {
-			if val.CanInt() {
-				return strconv.FormatInt(val.Int(), 10)
-			} else if val.CanUint() {
-				return strconv.FormatInt(int64(val.Uint()), 10)
-			} else if val.CanFloat() {
-				return strconv.FormatFloat(val.Float(), 'f', 2, 64)
-			} else if val.Type().Kind() == reflect.String {
-				return val.String()
+			if val.IsValid() {
+				if val.CanInt() {
+					return strconv.FormatInt(val.Int(), 10)
+				} else if val.CanUint() {
+					return strconv.FormatInt(int64(val.Uint()), 10)
+				} else if val.CanFloat() {
+					return strconv.FormatFloat(val.Float(), 'f', 2, 64)
+				} else if val.Type().Kind() == reflect.String {
+					return val.String()
+				} else if val.Type().Kind() == reflect.Pointer && val.Elem().Kind() == reflect.String {
+					return val.Elem().String()
+				}
+			} else {
+				panic(errors.New("getString was called for not Valid reflect value"))
 			}
-			panic(fmt.Sprintf("getString for reflect.Value %T (%v)", val.Interface(), val.Interface()))
+			panic(fmt.Sprintf("getString was called for reflect.Value %T (%v)", val.Interface(), val.Interface()))
 		}
 	}
 	panic(fmt.Sprintf("getString for %+v", *v))
