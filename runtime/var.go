@@ -239,9 +239,15 @@ func (v *Value) assignFromReflect(newVal reflect.Value) {
 		}
 	case VKError:
 		if newVal.Type().Kind() == reflect.Interface {
-			if err, ok := newVal.Interface().(error); ok {
-				v.val = err
-				return
+			if newVal.IsValid() {
+				if newVal.IsZero() {
+					v.val = nil
+					return
+				}
+				if err, ok := newVal.Interface().(error); ok {
+					v.val = err
+					return
+				}
 			}
 		}
 	}

@@ -104,7 +104,8 @@ func compile(files ...string) error {
 		file, err := os.ReadFile(name)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) && path.Ext(name) == "" {
-				file, err = os.ReadFile(name + ".gos")
+				name = name + ".gos"
+				file, err = os.ReadFile(name)
 			}
 			if err != nil {
 				return err
@@ -248,6 +249,7 @@ func initRegistry() {
 	reg.RegisterFunction(time.Parse)
 
 	reg.RegisterReflectValue("test", "TestObject", reflect.ValueOf(&TestType{"Hi from test type"}))
+	reg.RegisterReflectType(reflect.TypeOf(Subtype{}))
 	//tt := reflect.TypeOf(time.Time{})
 	//for i := 0; i < tt.NumMethod(); i++ {
 	//	fmt.Println(tt.Method(i))
@@ -263,12 +265,13 @@ func (tt *TestType) Print() {
 }
 
 func (tt *TestType) New() *Subtype {
-	return &Subtype{parent: tt}
+	return &Subtype{parent: tt, Time: time.Now()}
 }
 
 type Subtype struct {
 	parent *TestType
 	Value  int
+	Time   time.Time
 }
 
 func (st *Subtype) Parent() (*TestType, error) {

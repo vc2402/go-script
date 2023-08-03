@@ -515,6 +515,12 @@ func (p *Compiler) processMethodCall(s *scope, mc *methodCall, skipReturns bool)
 	if tr == nil || tr.refType == nil {
 		return NewInternalError("compiler error: type is undefined on method call", mc.lvalue.pos)
 	}
+	if mc.lvalue.tip == nil {
+		_, err := p.typeRefFromLvalue(s, mc.lvalue)
+		if err != nil {
+			return err
+		}
+	}
 	types, err := p.typeRefsFromExpressions(s, mc.params)
 	m, _ := mc.lvalue.tip.refType.MethodByName(mc.name)
 	fun := m.Func
@@ -1226,7 +1232,10 @@ func (p *Compiler) typeRefsFromFuncCall(s *scope, fc *funcCall) ([]*typeRef, err
 func (p *Compiler) typeRefsFromMethodCall(s *scope, mc *methodCall) ([]*typeRef, error) {
 	// currently it is for reflect only
 	if mc.lvalue.tip == nil {
-		return nil, NewInternalError("object type is undefined for method call", mc.pos)
+		_, err := p.typeRefFromLvalue(s, mc.lvalue)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if mc.lvalue.tip.pckg != "" || mc.lvalue.tip.refType != nil {
 		if mc.lvalue.tip.refType == nil {
@@ -1239,6 +1248,10 @@ func (p *Compiler) typeRefsFromMethodCall(s *scope, mc *methodCall) ([]*typeRef,
 			}
 		}
 		if mc.lvalue.tip.refType != nil {
+			tip := mc.lvalue.tip.refType
+			if tip.Kind() == reflect.Pointer {
+				tip = tip.Elem()
+			}
 			m, ok := mc.lvalue.tip.refType.MethodByName(mc.name)
 			if !ok {
 				return nil, NewError("no such method", mc.pos)
@@ -1413,9 +1426,12 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 		return arrayType.elem, nil
 	case lvalueKindField:
 		fa := lv.stmt.(*fieldAccess)
-		if fa.tip != nil {
-			return fa.tip, nil
+		if lv.tip != nil {
+			return lv.tip, nil
 		}
+		//if fa.tip != nil {
+		//	return fa.tip, nil
+		//}
 		_, err := p.typeRefFromLvalue(s, fa.lvalue)
 		if err != nil {
 			return nil, err
@@ -1448,6 +1464,7 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 				if err != nil {
 					return nil, WrapError(err, fa.pos)
 				}
+				lv.tip = tip
 				return tip, nil
 				//if fa.lvalue.tip.refType != nil {
 				//  tip := fa.lvalue.tip.refType

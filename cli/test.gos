@@ -40,6 +40,12 @@ func setG(nv int) {
      fmt.Println("parent: ", tt)
      tt.Print()
   }
+  if st.Time.Hour() >= 10 {
+    //TODO: expression in function call does not passes as argument
+    //fmt.Println("greater than 10:", st.Time.Hour()) - first argument leaks
+    h := st.Time.Hour()
+    fmt.Println("greater than 10:", h)
+  }
   st.Unbind()
   tt, err = st.Parent()
     if err != nil {
@@ -79,3 +85,5 @@ if order == 4452 {
 }
 return 0
 }
+
+//func printSubtypeTime(st Subtype
