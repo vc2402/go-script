@@ -86,4 +86,13 @@ if order == 4452 {
 return 0
 }
 
+func checkMap() {
+  tt := test.TestObject
+  if tt.MapValue["a"] == "aaa" {
+    fmt.Println("ok")
+  } else {
+    val := tt.MapValue["a"]
+    fmt.Println(val)
+  }
+}
 //func printSubtypeTime(st Subtype

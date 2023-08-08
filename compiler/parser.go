@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/vc2402/go-script/runtime"
 	"go/token"
@@ -461,15 +462,77 @@ func (tr *typeRef) equalTo(other *typeRef) bool {
 	if tr.refType != nil && other.refType != nil {
 		return tr.refType == other.refType
 	}
+	if tr.refType == nil && other.refType != nil {
+		return tr.isAssignable(other.refType)
+	}
+	if tr.refType != nil && other.refType == nil {
+		return other.isAssignable(tr.refType)
+	}
 	return tr.pckg == other.pckg && tr.name == other.name
 }
 
+func (tr *typeRef) isAssignable(other reflect.Type) bool {
+	if other == nil || other.Kind() == reflect.Invalid {
+		return false
+	}
+	kind := other.Kind()
+	switch tr.name {
+	case "int":
+		return kind == reflect.Int || kind == reflect.Int8 || kind == reflect.Int16 || kind == reflect.Int32 || kind == reflect.Int64 ||
+			kind == reflect.Uint || kind == reflect.Uint8 || kind == reflect.Uint16 || kind == reflect.Uint32 || kind == reflect.Uint64
+	case "float":
+		return kind == reflect.Float32 || kind == reflect.Float64
+	case "bool":
+		return kind == reflect.Bool
+	case "char":
+		return kind == reflect.Int32
+	case "string":
+		return kind == reflect.String
+	case "any":
+		return kind == reflect.Interface
+	case "error":
+		return kind == reflect.Interface
+	case "slice":
+		return kind == reflect.Slice || kind == reflect.Array
+	case "map":
+		return kind == reflect.Map
+	}
+	return false
+}
 func (tr *typeRef) String() string {
 	if tr.pckg != "" {
 		return fmt.Sprintf("%s.%s", tr.pckg, tr.name)
 	} else {
 		return tr.name
 	}
+}
+
+func (tr *typeRef) isMap() bool {
+	ok := tr.mapKey != ""
+
+	if !ok && tr.refType != nil && tr.refType.Kind() == reflect.Map {
+		ok = true
+	}
+	return ok
+}
+
+func (tr *typeRef) isArray() bool {
+	ok := tr.mapKey == "" && tr.elem != nil
+
+	if !ok && tr.refType != nil && tr.refType.Kind() == reflect.Slice {
+		ok = true
+	}
+	return ok
+}
+
+func (tr *typeRef) Elem() (*typeRef, error) {
+	if tr.elem != nil {
+		return tr.elem, nil
+	}
+	if tr.isMap() || tr.isArray() {
+		return &typeRef{refType: tr.refType.Elem(), name: tr.refType.Name(), pos: tr.pos}, nil
+	}
+	return nil, errors.New("not an array or map")
 }
 
 func (p *Compiler) lvaluesToIdents(ll []*lvalue) ([]string, error) {

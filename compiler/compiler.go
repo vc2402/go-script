@@ -598,7 +598,7 @@ func (p *Compiler) processAssignment(s *scope, as *assignment) error {
 			return WrapError(err, as.pos)
 		}
 		if !tr.equalTo(types[i]) {
-			return WrapError(fmt.Errorf("cannot assign %s to %s", types[i].String(), lv.String()), as.pos)
+			return WrapError(fmt.Errorf("cannot assign '%s' to '%s'", types[i].String(), lv.String()), as.pos)
 		}
 	}
 	for _, e := range as.right {
@@ -769,7 +769,7 @@ func (p *Compiler) processLValueExpression(s *scope, lv *lvalue) error {
 				return WrapError(err, fa.lvalue.pos)
 			}
 			//check that field exists
-			_, err = getAttrType(fa.lvalue.tip, fa.field)
+			lv.tip, err = getAttrType(fa.lvalue.tip, fa.field)
 			if err != nil {
 				return WrapError(err, fa.lvalue.pos)
 			}
@@ -779,10 +779,14 @@ func (p *Compiler) processLValueExpression(s *scope, lv *lvalue) error {
 		lv.forAssignment = false
 	case lvalueKindIndex:
 		aa := lv.stmt.(*arrayAccess)
+		err := p.processLValueExpression(s, aa.lvalue)
+		if err != nil {
+			return err
+		}
 		if aa.lvalue.tip == nil {
 			return NewInternalError("compiler error: lvalue type of index operator is undefined", aa.pos)
 		}
-		err := p.processExpression(s, aa.expression, false)
+		err = p.processExpression(s, aa.expression, false)
 		if err != nil {
 			return err
 		}
@@ -1095,6 +1099,9 @@ func (p *Compiler) getTypeKind(tip *typeRef) (*runtime.VarDescriptor, error) {
 		}
 		// TODO check script defined types when appear
 		return runtime.NewVarDescriptor(runtime.VKExternal, tip.pckg, tip.name).SetInitValue(tip.refType), nil
+	}
+	if tip.refType != nil && tip.refType.Kind() != reflect.Invalid {
+		return runtime.NewVarDescriptor(runtime.VKExternal, "", "").SetInitValue(reflect.Zero(tip.refType)), nil
 	}
 	// built-in types
 	return varDescriptorForBuiltInType(tip.name)
@@ -1423,7 +1430,7 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 		if err != nil {
 			return nil, err
 		}
-		return arrayType.elem, nil
+		return arrayType.Elem()
 	case lvalueKindField:
 		fa := lv.stmt.(*fieldAccess)
 		if lv.tip != nil {

@@ -1,0 +1,15 @@
+
+func checkMap() {
+  tt := test.TestObject
+  val := tt.MapValue["a"]
+  if tt.MapValue["a"] == "aaa" {
+    fmt.Println("ok")
+  }
+  if tt.MapValue["a"] == "aaab" {
+      fmt.Println("not ok")
+  }
+  if tt.MapValue["a"] == "aaa" {
+      fmt.Println("ok")
+    }
+  fmt.Println(val)
+}
