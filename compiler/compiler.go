@@ -900,7 +900,7 @@ func (p *Compiler) processArithmeticExpression(s *scope, left *expression, right
 				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKString), 0).SetDebugInfo(p.getDebugInfo(right.pos))
 			}
 		}
-		if lt.refType != nil {
+		if rt.refType != nil {
 			if leftName == "string" {
 				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKString), 1).SetDebugInfo(p.getDebugInfo(right.pos))
 			}

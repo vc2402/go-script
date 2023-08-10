@@ -2,7 +2,7 @@
 func checkMap() {
   tt := test.TestObject
   val := tt.MapValue["a"]
-  val2 := val + "bb"
+  val2 := "cc " + val + "bb"
   if tt.MapValue["a"] == "aaa" {
     fmt.Println("ok")
   }
