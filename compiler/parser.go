@@ -475,6 +475,9 @@ func (tr *typeRef) isAssignable(other reflect.Type) bool {
 	if other == nil || other.Kind() == reflect.Invalid {
 		return false
 	}
+	if tr.refType != nil {
+		return tr.refType.AssignableTo(other)
+	}
 	kind := other.Kind()
 	switch tr.name {
 	case "int":
@@ -498,6 +501,27 @@ func (tr *typeRef) isAssignable(other reflect.Type) bool {
 		return kind == reflect.Map
 	}
 	return false
+}
+
+func (tr *typeRef) toEmbeddedTypeName() string {
+	if tr.refType == nil {
+		return tr.name
+	}
+	switch tr.refType.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return "int"
+	case reflect.Float32, reflect.Float64:
+		return "float"
+	case reflect.Bool:
+		return "bool"
+	case reflect.String:
+		return "string"
+	case reflect.Slice, reflect.Array:
+		return "array"
+	default:
+		return "any"
+	}
 }
 func (tr *typeRef) String() string {
 	if tr.pckg != "" {

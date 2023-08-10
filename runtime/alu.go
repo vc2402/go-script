@@ -127,5 +127,5 @@ func aluLessThanOrEqualTo(eng *Engine, op *Operation) {
 
 // converts to simple type in ip1
 func aluConvert(eng *Engine, op *Operation) {
-	eng.setStackItem(0, eng.convert(eng.stackItem(0), VarKind(op.ip1)))
+	eng.setStackItem(op.ip2, eng.convert(eng.stackItem(op.ip2), VarKind(op.ip1)))
 }

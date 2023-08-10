@@ -2,6 +2,7 @@
 func checkMap() {
   tt := test.TestObject
   val := tt.MapValue["a"]
+  val2 := val + "bb"
   if tt.MapValue["a"] == "aaa" {
     fmt.Println("ok")
   }
@@ -11,5 +12,9 @@ func checkMap() {
   if tt.MapValue["a"] == "aaa" {
       fmt.Println("ok")
     }
-  fmt.Println(val)
+  fmt.Println(val, val2)
+}
+
+func checkRet(param string) ( queueID int, problem string ) {
+  return 0, param + " aaa" + " bbb"
 }

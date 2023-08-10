@@ -838,57 +838,72 @@ func (p *Compiler) processLValueExpression(s *scope, lv *lvalue) error {
 }
 
 func (p *Compiler) processArithmeticExpression(s *scope, left *expression, right *expression, oper int) error {
-	lt, err := p.typeRefFromExpression(s, left)
-	if err != nil {
-		return err
-	}
 	rt, err := p.typeRefFromExpression(s, right)
 	if err != nil {
 		return err
 	}
-	err = p.processExpression(s, left, false)
+	lt, err := p.typeRefFromExpression(s, left)
 	if err != nil {
 		return err
-	}
-	if lt.name != rt.name {
-		showError := false
-		if rt.name == "float" && lt.name == "int" {
-			if p.Options.AllowImplicitNumbersConversion {
-				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKFloat)).SetDebugInfo(p.getDebugInfo(left.pos))
-				lt.name = "float"
-			} else {
-				showError = true
-			}
-		} else if lt.name == "string" && oper == expressionKindSum {
-			if !p.Options.AllowImplicitConversionToString {
-				showError = true
-			}
-		} else if lt.name != "float" && rt.name != "int" {
-			showError = true
-		}
-		if showError {
-			return WrapError(fmt.Errorf("invalid operation: mismatched types %s and %s", lt.name, rt.name), left.pos)
-		}
 	}
 	err = p.processExpression(s, right, false)
 	if err != nil {
 		return err
 	}
-	if lt.name != rt.name {
+
+	err = p.processExpression(s, left, false)
+	if err != nil {
+		return err
+	}
+	leftName := lt.toEmbeddedTypeName()
+	rightName := rt.toEmbeddedTypeName()
+	if leftName != rightName {
 		showError := false
-		if lt.name == "float" && rt.name == "int" {
+		if rightName == "float" && leftName == "int" {
+			if p.Options.AllowImplicitNumbersConversion {
+				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKFloat)).SetDebugInfo(p.getDebugInfo(left.pos))
+				leftName = "float"
+			} else {
+				showError = true
+			}
+		} else if leftName == "string" && oper == expressionKindSum {
+			if !p.Options.AllowImplicitConversionToString {
+				showError = true
+			}
+		} else if leftName != "float" && rightName != "int" {
+			showError = true
+		}
+		if showError {
+			return WrapError(fmt.Errorf("invalid operation: mismatched types %s and %s", leftName, rightName), left.pos)
+		}
+	}
+	if leftName != rightName {
+		showError := false
+		if leftName == "float" && rightName == "int" {
 			if p.Options.AllowImplicitNumbersConversion {
 				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKFloat)).SetDebugInfo(p.getDebugInfo(right.pos))
 			} else {
 				showError = true
 			}
-		} else if lt.name == "string" && oper == expressionKindSum {
+		} else if leftName == "string" && oper == expressionKindSum {
 			s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKString)).SetDebugInfo(p.getDebugInfo(right.pos))
 		} else {
 			showError = true
 		}
 		if showError {
-			return WrapError(fmt.Errorf("invalid operation: mismatched types %s and %s", lt.name, rt.name), left.pos)
+			return WrapError(fmt.Errorf("invalid operation: mismatched types %s and %s", leftName, rightName), left.pos)
+		}
+	} else if lt.name != rt.name {
+		if lt.refType != nil {
+			//TODO for other types
+			if leftName == "string" {
+				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKString), 0).SetDebugInfo(p.getDebugInfo(right.pos))
+			}
+		}
+		if lt.refType != nil {
+			if leftName == "string" {
+				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucConvert, int(runtime.VKString), 1).SetDebugInfo(p.getDebugInfo(right.pos))
+			}
 		}
 	}
 	var command runtime.Command
@@ -1340,17 +1355,22 @@ func (p *Compiler) typeRefFromExpression(s *scope, expr *expression) (*typeRef, 
 		if err := p.isConvertible(rp, lp); err != nil {
 			return nil, err
 		}
-		switch lp.name {
+		if rp.refType != nil && lp.refType != nil {
+			return rp, nil
+		}
+		leftType := lp.toEmbeddedTypeName()
+		rightType := rp.toEmbeddedTypeName()
+		switch leftType {
 		case "float":
-			if rp.name == "float" || rp.name == "int" {
+			if rightType == "float" || rightType == "int" {
 				return lp, nil
 			}
 		case "int":
-			if rp.name == "float" || rp.name == "int" {
+			if rightType == "float" || rightType == "int" {
 				return rp, nil
 			}
 		case "string":
-			if rp.name == "string" {
+			if rightType == "string" {
 				return lp, nil
 			}
 		}
