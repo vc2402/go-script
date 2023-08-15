@@ -242,12 +242,24 @@ func printVar(vars ...string) {
 	fmt.Println()
 }
 
+func Trace(params ...any) {
+	asStr := fmt.Sprint(params...)
+	fmt.Println(asStr)
+}
+
+func Tracef(format string, params ...any) {
+	asStr := fmt.Sprintf(format, params...)
+	fmt.Println(asStr)
+}
+
 func initRegistry() {
 	reg.RegisterFunction(fmt.Println)
 	reg.RegisterFunction(fmt.Sprintf)
 	reg.RegisterReflectType(reflect.TypeOf(time.Time{}))
 	reg.RegisterFunction(time.Now)
 	reg.RegisterFunction(time.Parse)
+	reg.RegisterReflectValue("log", "Trace", reflect.ValueOf(Trace))
+	reg.RegisterReflectValue("log", "Tracef", reflect.ValueOf(Tracef))
 
 	reg.RegisterReflectValue(
 		"test",

@@ -1,13 +1,21 @@
 func ttt12() ( queueID int, problem string ) {
+{
+
+log.Trace("some trace: \"aaa\"")
 return 34, "Delivery date is " + fmt.Sprintf("%d", 12)
+}
+{
+return 0, "queue not found"
+}
 }
 
 func checkMap() {
   tt := test.TestObject
   val := tt.MapValue["a"]
   val2 := "cc " + val + "bb"
+  cr := tt.MapValue["a"] == "aaa"
   if tt.MapValue["a"] == "aaa" {
-    fmt.Println("ok")
+    fmt.Println("ok: ", cr)
   }
   if tt.MapValue["a"] == "aaab" {
       fmt.Println("not ok")
@@ -29,6 +37,9 @@ func checkRet(param string) ( queueID int, problem string ) {
 }
 
 func ttt(order string, hour int) ( queueID int, problem string ) {
+var conditionResult bool
+conditionResult = order == "V" && hour >= 9 && hour <= 13
+fmt.Println("conditionResult: ", conditionResult)
 if order == "P1" {
 if hour >= 9 && hour <= 13 {
 return 14, ""

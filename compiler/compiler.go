@@ -1421,7 +1421,7 @@ func (p *Compiler) typeRefFromExpression(s *scope, expr *expression) (*typeRef, 
 		if err != nil {
 			return nil, err
 		}
-		if areComparable(lp.name, rp.name) {
+		if areComparable(lp.toEmbeddedTypeName(), rp.toEmbeddedTypeName()) {
 			return &typeRef{name: "bool"}, nil
 		}
 		return nil, fmt.Errorf("not comparable types found %s and %s", lp.name, rp.name)
