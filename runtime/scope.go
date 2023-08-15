@@ -217,20 +217,27 @@ func (p *Package) GetReflectType(name string) (reflect.Type, error) {
 	return reflect.TypeOf(ErrTypeNotFound), ErrTypeNotFound
 }
 
-func (p *Package) GetVarByName(name string) (v *Value) {
+func (p *Package) FindVarByName(name string) (v *Value, ok bool) {
 	if p.varsIndex != nil {
 		p.mapLock.RLock()
 		defer p.mapLock.RUnlock()
 		idx, ok := p.varsIndex[name]
 		if ok {
-			return p.getVar(idx)
+			return p.getVar(idx), true
 		}
 	} else {
 		for i := range p.vars {
 			if p.vars[i].name == name {
-				return &p.vars[i]
+				return &p.vars[i], true
 			}
 		}
+	}
+	return nil, false
+}
+
+func (p *Package) GetVarByName(name string) (v *Value) {
+	if v, ok := p.FindVarByName(name); ok {
+		return v
 	}
 	panic(fmt.Sprintf("var %s not found in package %s", name, p.alias))
 }

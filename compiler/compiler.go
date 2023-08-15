@@ -857,6 +857,8 @@ func (p *Compiler) processArithmeticExpression(s *scope, left *expression, right
 	}
 	leftName := lt.toEmbeddedTypeName()
 	rightName := rt.toEmbeddedTypeName()
+	leftExt := lt.refType != nil
+	rightExt := rt.refType != nil
 	if leftName != rightName {
 		showError := false
 		if rightName == "float" && leftName == "int" {
@@ -893,7 +895,7 @@ func (p *Compiler) processArithmeticExpression(s *scope, left *expression, right
 		if showError {
 			return WrapError(fmt.Errorf("invalid operation: mismatched types %s and %s", leftName, rightName), left.pos)
 		}
-	} else if lt.name != rt.name {
+	} else if lt.name != rt.name || leftExt != rightExt {
 		if lt.refType != nil {
 			//TODO for other types
 			if leftName == "string" {
@@ -1230,7 +1232,10 @@ func (p *Compiler) typeRefsFromFuncCall(s *scope, fc *funcCall) ([]*typeRef, err
 		if err != nil {
 			return nil, err
 		}
-		fd := pack.GetVarByName(fc.name)
+		fd, ok := pack.FindVarByName(fc.name)
+		if !ok {
+			return nil, fmt.Errorf("at %v: '%s' not found in package '%s'", fc.pos, fc.name, fc.pckg)
+		}
 		if fd == nil {
 			return nil, fmt.Errorf("%s: not found in package %s", fc.name, fc.pckg)
 		}
@@ -1259,7 +1264,15 @@ func (p *Compiler) typeRefsFromMethodCall(s *scope, mc *methodCall) ([]*typeRef,
 			return nil, err
 		}
 	}
-	if mc.lvalue.tip.pckg != "" || mc.lvalue.tip.refType != nil {
+	if mc.lvalue.kind == lvalueKindPackage {
+		fc := &funcCall{
+			name:   mc.name,
+			pckg:   mc.lvalue.tip.name,
+			params: mc.params,
+			pos:    mc.pos,
+		}
+		return p.typeRefsFromFuncCall(s, fc)
+	} else if mc.lvalue.tip != nil && mc.lvalue.tip.pckg != "" || mc.lvalue.tip.refType != nil {
 		if mc.lvalue.tip.refType == nil {
 			ev, err := p.getExtVar(mc.lvalue.tip.pckg, mc.lvalue.tip.name)
 			if err != nil {
@@ -1282,6 +1295,7 @@ func (p *Compiler) typeRefsFromMethodCall(s *scope, mc *methodCall) ([]*typeRef,
 		} else {
 			return nil, NewInternalError("lvalue type cannot be defined for method call", mc.pos)
 		}
+
 	}
 	return nil, WrapError(fmt.Errorf("%s cannot be called", mc.name), mc.pos)
 }
@@ -1437,6 +1451,9 @@ func (p *Compiler) typeRefFromLvalue(s *scope, lv *lvalue) (*typeRef, error) {
 			}
 			if pc, _ := p.registry.GetPackage(name); pc != nil {
 				lv.kind = lvalueKindPackage
+				lv.tip = &typeRef{
+					name: name,
+				}
 				return nil, nil
 			}
 			return nil, WrapError(fmt.Errorf("'%s': not found", lv.stmt.(string)), lv.pos)
@@ -1605,7 +1622,10 @@ func (p *Compiler) getExtVar(pckg, name string) (v *runtime.Value, err error) {
 	if err != nil {
 		return nil, err
 	}
-	v = pack.GetVarByName(name)
+	v, ok := pack.FindVarByName(name)
+	if !ok {
+		return nil, fmt.Errorf("'%s' is not found in '%s'", name, pckg)
+	}
 	if v == nil {
 		err = fmt.Errorf("%s: not found in package %s", name, pckg)
 	}

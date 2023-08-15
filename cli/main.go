@@ -244,6 +244,7 @@ func printVar(vars ...string) {
 
 func initRegistry() {
 	reg.RegisterFunction(fmt.Println)
+	reg.RegisterFunction(fmt.Sprintf)
 	reg.RegisterReflectType(reflect.TypeOf(time.Time{}))
 	reg.RegisterFunction(time.Now)
 	reg.RegisterFunction(time.Parse)
