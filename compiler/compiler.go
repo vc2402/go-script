@@ -649,7 +649,11 @@ func (p *Compiler) processIf(s *scope, is *ifStatement) error {
 			idx:    len(s.scopes),
 		}
 		s.scopes = append(s.scopes, elseScope)
-		err := p.processBlock(elseScope, is.els.stmt.([]*statement))
+		if elseIf, ok := is.els.stmt.(*ifStatement); ok {
+			err = p.processIf(elseScope, elseIf)
+		} else {
+			err = p.processBlock(elseScope, is.els.stmt.([]*statement))
+		}
 		if err != nil {
 			return err
 		}
@@ -1272,7 +1276,7 @@ func (p *Compiler) typeRefsFromMethodCall(s *scope, mc *methodCall) ([]*typeRef,
 			pos:    mc.pos,
 		}
 		return p.typeRefsFromFuncCall(s, fc)
-	} else if mc.lvalue.tip != nil && mc.lvalue.tip.pckg != "" || mc.lvalue.tip.refType != nil {
+	} else if mc.lvalue.tip != nil && (mc.lvalue.tip.pckg != "" || mc.lvalue.tip.refType != nil) {
 		if mc.lvalue.tip.refType == nil {
 			ev, err := p.getExtVar(mc.lvalue.tip.pckg, mc.lvalue.tip.name)
 			if err != nil {

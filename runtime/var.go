@@ -260,7 +260,7 @@ func (eng *Engine) isNil(v *Value) bool {
 		return v.val == nil
 	}
 	val := v.val.(reflect.Value)
-	return val.IsValid() && val.IsZero() ||
+	return !val.IsValid() ||
 		((val.Kind() == reflect.Pointer || val.Kind() == reflect.Interface || val.Kind() == reflect.Map || val.Kind() == reflect.Slice) &&
 			val.IsNil())
 }

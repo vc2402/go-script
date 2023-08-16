@@ -264,7 +264,7 @@ func initRegistry() {
 	reg.RegisterReflectValue(
 		"test",
 		"TestObject",
-		reflect.ValueOf(&TestType{StringValue: "Hi from test type", MapValue: map[string]string{"a": "aaa"}}))
+		reflect.ValueOf(&TestType{StringValue: "Hi from test type", MapValue: map[string]string{"a": "aaa"}, FloatValue: 12.0}))
 	reg.RegisterReflectType(reflect.TypeOf(Subtype{}))
 	//tt := reflect.TypeOf(time.Time{})
 	//for i := 0; i < tt.NumMethod(); i++ {
@@ -275,6 +275,7 @@ func initRegistry() {
 type TestType struct {
 	StringValue string
 	MapValue    map[string]string
+	FloatValue  float64
 }
 
 func (tt *TestType) Print() {
@@ -283,6 +284,10 @@ func (tt *TestType) Print() {
 
 func (tt *TestType) New() *Subtype {
 	return &Subtype{parent: tt, Time: time.Now()}
+}
+
+func (tt *TestType) NewSubtype() (*Subtype, error) {
+	return nil, nil
 }
 
 type Subtype struct {

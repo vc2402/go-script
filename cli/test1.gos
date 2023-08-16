@@ -1,6 +1,19 @@
 func ttt12() ( queueID int, problem string ) {
 {
+tt := test.TestObject
 
+if tt.FloatValue == 0 {
+  fmt.Println("0")
+} else {
+
+    fmt.Println("not 0: ", tt.FloatValue)
+
+}
+  tt.Print()
+  st, err := tt.NewSubtype()
+  fmt.Println(st, err)
+t, err := time.Parse("2006-01-02","1993-05-01")
+log.Trace(t)
 log.Trace("some trace: \"aaa\"")
 return 34, "Delivery date is " + fmt.Sprintf("%d", 12)
 }
@@ -23,6 +36,8 @@ func checkMap() {
   if tt.MapValue["a"] == "aaa" {
       fmt.Println("ok")
     }
+  fmt.Println(val, val2)
+  fmt.Println(val, val2)
   fmt.Println(val, val2)
 }
 
