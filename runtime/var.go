@@ -254,7 +254,7 @@ func (v *Value) assignFromReflect(newVal reflect.Value) {
 	panic(fmt.Sprintf("assignFromReflect: cannot assign from %s to %s", newVal.String(), varKinds[v.kind]))
 }
 
-func (eng *Engine) isNil(v *Value) bool {
+func (eng *Engine) IsNil(v *Value) bool {
 	v = v.deref(eng)
 	if v.kind != VKExternal {
 		return v.val == nil
@@ -506,17 +506,83 @@ func (eng *Engine) convert(v *Value, kind VarKind) (ret *Value) {
 		panic("convert to char not implemented")
 	case VKString:
 		ret.val = v.getString()
+	case VKExternal:
+
 	default:
+		if kind == VKError {
+			if v.val == nil {
+				return ret
+			}
+		}
 		panic(fmt.Sprintf("impossible conversion from %s to %s", varKinds[v.kind], varKinds[kind]))
 	}
 	return
 }
 
+func (eng *Engine) pointerOf(v *Value) (ret *Value) {
+	v = v.deref(eng)
+	ret = &Value{VarDescriptor: &VarDescriptor{kind: VKExternal}}
+	switch v.kind {
+	case VKExternal:
+		rf := v.val.(reflect.Value)
+		// so far small workaround
+
+		if rf.Kind() == reflect.Pointer {
+			ret = v
+		} else {
+			if rf.CanAddr() {
+				ret.val = rf.Addr()
+			} else {
+				val := rf.Interface()
+				ret.val = reflect.ValueOf(&val)
+			}
+		}
+	default:
+		panic("pointerOf implemented only for reflect types")
+	}
+	return ret
+}
+
+func (eng *Engine) pointsTo(v *Value) (ret *Value) {
+	v = v.deref(eng)
+	ret = &Value{VarDescriptor: &VarDescriptor{kind: VKExternal}}
+	switch v.kind {
+	case VKExternal:
+		refVal := v.val.(reflect.Value)
+		if refVal.Kind() == reflect.Pointer || refVal.Kind() == reflect.Interface {
+			ret.val = refVal.Elem()
+		}
+		panic("not a pointer")
+	default:
+		panic("pointsTo implemented only for reflect types")
+	}
+	return ret
+}
+
+func (eng *Engine) embedLen(v *Value) (ret *Value) {
+	v = v.deref(eng)
+	ret = &Value{VarDescriptor: &VarDescriptor{kind: VKInt}}
+	switch v.kind {
+	case VKExternal:
+		refVal := v.val.(reflect.Value)
+		if refVal.Kind() == reflect.Slice || refVal.Kind() == reflect.Array ||
+			refVal.Kind() == reflect.Chan || refVal.Kind() == reflect.String || refVal.Kind() == reflect.Map {
+			ret.val = Int(refVal.Len())
+		}
+		panic("invalid type for len()")
+	case VKString:
+		ret.val = Int(len(v.val.(string)))
+	default:
+		panic("invalid use of len() function")
+	}
+	return ret
+}
+
 func (eng *Engine) compare(v *Value, to *Value) int {
 	v = v.deref(eng)
 	to = to.deref(eng)
-	ln := eng.isNil(v)
-	rn := eng.isNil(to)
+	ln := eng.IsNil(v)
+	rn := eng.IsNil(to)
 	if ln && rn {
 		return 0
 	}
@@ -853,9 +919,7 @@ func NewDescriptorFromReflect(t reflect.Type) (*VarDescriptor, error) {
 			//TODO resolve alias by path
 			d.pckg = t.PkgPath()
 			d.name = t.Name()
-			d.kind = VKExternal
-		} else {
-			return nil, fmt.Errorf("reflect kind %s is not supported", t.Kind())
+			d.init = t
 		}
 	}
 	return d, nil
@@ -907,6 +971,18 @@ func (vd *VarDescriptor) Package() string { return vd.pckg }
 func (vd *VarDescriptor) Elem() *VarDescriptor { return vd.elemType }
 
 func (vd *VarDescriptor) Key() *VarDescriptor { return vd.keyType }
+
+func (vd *VarDescriptor) ReflectType() (reflect.Type, error) {
+	if vd.kind == VKExternal {
+		switch v := vd.init.(type) {
+		case reflect.Type:
+			return v, nil
+		case reflect.Value:
+			return v.Type(), nil
+		}
+	}
+	return nil, errors.New("type is not described correctly")
+}
 
 func (vd *VarDescriptor) String() string {
 	if vd.kind <= VKError {
@@ -971,11 +1047,20 @@ func (vd *VarDescriptor) IsAssignable(tip reflect.Type, reg *Registry) bool {
 	case VKString:
 		return tip.AssignableTo(reflect.TypeOf(""))
 	case VKExternal:
-		extType, err := reg.GetType(vd.pckg, vd.name)
-		if err != nil {
-			return false
+		if vd.init != nil {
+			extType, err := vd.ReflectType()
+			if err != nil {
+				return false
+			}
+			return tip.AssignableTo(extType)
 		}
-		return tip.AssignableTo(extType)
+		if vd.pckg != "" && vd.name != "" {
+			extType, err := reg.GetType(vd.pckg, vd.name)
+			if err != nil {
+				return false
+			}
+			return tip.AssignableTo(extType)
+		}
 	}
 	//TODO check for other types
 	return false

@@ -17,6 +17,9 @@ const (
 	AlucGreaterOrEqual
 	AlucLessOrEqual
 	AlucConvert
+	AlucPointer
+	AlucDepointer
+	AlucEmbedLen
 )
 
 var aluExecutors = []CommandExecutor{
@@ -36,6 +39,9 @@ var aluExecutors = []CommandExecutor{
 	aluGreaterThanOrEqualTo,
 	aluLessThanOrEqualTo,
 	aluConvert,
+	aluPointer,
+	aluDepointer,
+	aluEmbedLen,
 }
 
 func aluAdd(eng *Engine, op *Operation) {
@@ -128,4 +134,16 @@ func aluLessThanOrEqualTo(eng *Engine, op *Operation) {
 // converts to simple type in ip1
 func aluConvert(eng *Engine, op *Operation) {
 	eng.setStackItem(op.ip2, eng.convert(eng.stackItem(op.ip2), VarKind(op.ip1)))
+}
+
+func aluPointer(eng *Engine, op *Operation) {
+	eng.setStackItem(op.ip1, eng.pointerOf(eng.stackItem(op.ip1)))
+}
+
+func aluDepointer(eng *Engine, op *Operation) {
+	eng.setStackItem(op.ip1, eng.pointsTo(eng.stackItem(op.ip1)))
+}
+
+func aluEmbedLen(eng *Engine, op *Operation) {
+	eng.setStackItem(op.ip1, eng.embedLen(eng.stackItem(op.ip1)))
 }

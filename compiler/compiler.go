@@ -12,6 +12,12 @@ import (
 	"strconv"
 )
 
+const (
+	functionLen    = "len"
+	functionCap    = "cap"
+	functionAppend = "append"
+)
+
 type Error struct {
 	error
 	pos token.Pos
@@ -370,6 +376,19 @@ func (p *Compiler) processFuncCall(s *scope, fc *funcCall, skipRets bool) error 
 	if fc.pckg == "" {
 		sid, vid, v := s.findVar(fc.name)
 		if v == nil {
+			if fc.isEmbedded() {
+				switch fc.name {
+				case functionLen:
+					if len(types) == 1 && types[0].refType != nil {
+						s.descriptor.Program.Add(runtime.CKALU, runtime.AlucEmbedLen)
+						if skipRets {
+							s.descriptor.Program.Add(runtime.CKScope, runtime.SCPopN, 1)
+						}
+						return nil
+					}
+					return errors.New("unexpected len()")
+				}
+			}
 			return fmt.Errorf("function '%s' not found", fc.name)
 		}
 		fs, ok := v.descriptor.(*scope)
@@ -454,6 +473,14 @@ func (p *Compiler) processFuncCall(s *scope, fc *funcCall, skipRets bool) error 
 					return err
 				}
 				if !vd.IsAssignable(argType, p.registry) {
+					if t.refType != nil && t.refType.Kind() == reflect.Pointer && t.refType.Elem() == argType {
+						s.descriptor.Program.Add(runtime.CKALU, runtime.AlucDepointer, i).SetDebugInfo(p.getDebugInfo(fc.pos))
+						continue
+					}
+					if t.refType != nil && argType.Kind() == reflect.Pointer && argType.Elem() == t.refType {
+						s.descriptor.Program.Add(runtime.CKALU, runtime.AlucPointer, i).SetDebugInfo(p.getDebugInfo(fc.pos))
+						continue
+					}
 					if isVariadic && argType.Kind() == reflect.Slice {
 						argType = argType.Elem()
 						if vd.IsAssignable(argType, p.registry) {
@@ -521,8 +548,17 @@ func (p *Compiler) processMethodCall(s *scope, mc *methodCall, skipReturns bool)
 			return err
 		}
 	}
+	pointerRequired := false
 	types, err := p.typeRefsFromExpressions(s, mc.params)
-	m, _ := mc.lvalue.tip.refType.MethodByName(mc.name)
+	m, ok := mc.lvalue.tip.refType.MethodByName(mc.name)
+	if !ok {
+		pointerType := reflect.PointerTo(mc.lvalue.tip.refType)
+		m, ok = pointerType.MethodByName(mc.name)
+		if !ok {
+			return fmt.Errorf("method %s not found in type %s", mc.name, mc.lvalue.tip.refType.Name())
+		}
+		pointerRequired = true
+	}
 	fun := m.Func
 	funType := fun.Type()
 	argsCount := funType.NumIn() - 1
@@ -545,6 +581,14 @@ func (p *Compiler) processMethodCall(s *scope, mc *methodCall, skipReturns bool)
 			return err
 		}
 		if !vd.IsAssignable(argType, p.registry) {
+			if t.refType != nil && t.refType.Kind() == reflect.Pointer && t.refType.Elem() == argType {
+				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucDepointer, i).SetDebugInfo(p.getDebugInfo(mc.pos))
+				continue
+			}
+			if t.refType != nil && argType.Kind() == reflect.Pointer && argType.Elem() == t.refType {
+				s.descriptor.Program.Add(runtime.CKALU, runtime.AlucPointer, i).SetDebugInfo(p.getDebugInfo(mc.pos))
+				continue
+			}
 			if isVariadic && argType.Kind() == reflect.Slice {
 				argType = argType.Elem()
 				if vd.IsAssignable(argType, p.registry) {
@@ -574,6 +618,9 @@ func (p *Compiler) processMethodCall(s *scope, mc *methodCall, skipReturns bool)
 		return WrapError(err, mc.lvalue.pos)
 	}
 
+	if pointerRequired {
+		s.descriptor.Program.Add(runtime.CKALU, runtime.AlucPointer)
+	}
 	s.descriptor.Program.Add(runtime.CKExec, runtime.ExecCallMethod, 0, 0, mc.name)
 	if skipReturns {
 		s.descriptor.Program.Add(runtime.CKScope, runtime.SCPopN, resultsCount)
@@ -1571,11 +1618,15 @@ func varDescriptorToTypeRef(vd *runtime.VarDescriptor) *typeRef {
 		name: vd.Name(),
 		pckg: vd.Package(),
 	}
-	if vd.Key() != nil {
-		tr.mapKey = vd.Key().Name()
-	}
-	if vd.Elem() != nil {
-		tr.elem = varDescriptorToTypeRef(vd.Elem())
+	if vd.Kind() == runtime.VKExternal {
+		tr.refType, _ = vd.ReflectType()
+	} else {
+		if vd.Key() != nil {
+			tr.mapKey = vd.Key().Name()
+		}
+		if vd.Elem() != nil {
+			tr.elem = varDescriptorToTypeRef(vd.Elem())
+		}
 	}
 	return tr
 }
@@ -1663,7 +1714,9 @@ func (fc *funcCall) isTypeConversion() bool {
 		case "bool":
 			fc.convertTo = runtime.VKBool
 		}
-		fc.returnTypes = []*typeRef{{name: fc.name}}
+		if fc.convertTo != runtime.VKUndef && fc.convertTo != runtime.VarKind(-1) {
+			fc.returnTypes = []*typeRef{{name: fc.name}}
+		}
 	}
 	return fc.convertTo != runtime.VKUndef && fc.convertTo != runtime.VarKind(-1)
 }
@@ -1671,7 +1724,7 @@ func (fc *funcCall) isTypeConversion() bool {
 func (fc *funcCall) isEmbedded() bool {
 	if fc.returnTypes == nil && fc.pckg == "" {
 		switch fc.name {
-		case "len", "cap", "append":
+		case functionLen, functionCap, functionAppend:
 			fc.convertTo = runtime.VarKind(-1)
 		}
 	}
@@ -1707,6 +1760,11 @@ func (p *Compiler) isConvertible(from *typeRef, to *typeRef) error {
 	}
 	if to.name == "string" && isNumber(from.name) || from.name == "bool" {
 		if p.Options.AllowImplicitConversionToString {
+			return nil
+		}
+	}
+	if from.name == "nil" {
+		if to.name == "error" {
 			return nil
 		}
 	}
