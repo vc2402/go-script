@@ -6,6 +6,9 @@ import (
 	"reflect"
 )
 
+var ErrFunctionNotFound = errors.New("function not found")
+var ErrVarNotFound = errors.New("variable not found")
+
 type Engine struct {
 	// we always have at least one scope - top
 	scope ExecutionScope
@@ -44,7 +47,7 @@ func (eng *Engine) Run(function string, params []*Value) (ret []*Value, err erro
 			return
 		}
 	}
-	return nil, errors.New("function not found")
+	return nil, ErrFunctionNotFound
 }
 
 func (eng *Engine) DescribeFunction(function string) (params []FuncParam, rets []FuncParam, err error) {
@@ -60,7 +63,7 @@ func (eng *Engine) DescribeFunction(function string) (params []FuncParam, rets [
 			return fd.params, fd.results, nil
 		}
 	}
-	return nil, nil, errors.New("function not found")
+	return nil, nil, ErrFunctionNotFound
 }
 
 func (eng *Engine) Var(name string) (ret Value, err error) {
@@ -73,7 +76,7 @@ func (eng *Engine) Var(name string) (ret Value, err error) {
 			return v, nil
 		}
 	}
-	err = errors.New("var not found")
+	err = ErrVarNotFound
 	return
 }
 
